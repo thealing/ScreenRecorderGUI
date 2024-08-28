@@ -85,16 +85,6 @@ int load_data(const wchar_t* name, void* data, int size) {
 	return size;
 }
 
-DWORD WINAPI beep_proc(LPVOID frequency) {
-	Beep((int)frequency, 200);
-	return 0;
-}
-
-void beep(int frequency) {
-	HANDLE thread = CreateThread(NULL, 0, beep_proc, (LPVOID)frequency, 0, NULL);
-	CloseHandle(thread);
-}
-
 bool is_actual_window(HWND window) {
 	return GetWindowLong(window, GWL_STYLE) & (WS_THICKFRAME | WS_DLGFRAME);
 }

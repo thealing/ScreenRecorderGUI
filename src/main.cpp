@@ -18,6 +18,8 @@ struct Settings {
 	Hotkey stop_hotkey;
 	Hotkey pause_hotkey;
 	Hotkey resume_hotkey;
+	bool better_preview;
+	bool disable_preview;
 };
 
 BITMAPINFOHEADER capture_info;
@@ -599,10 +601,10 @@ void start_recording() {
 	MFCreateAttributes(&encoder_attributes, 0);
 	// customize codec
 	CHECK(sink_writer->SetInputMediaType(stream_index, input_type, encoder_attributes));
-	encode_thread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)encode_proc, NULL, 0, NULL);
 	if (settings.beep_at_start) {
-		beep(5000);
+		Beep(5000, 200);
 	}
+	encode_thread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)encode_proc, NULL, 0, NULL);
 }
 
 void stop_recording() {
@@ -620,7 +622,7 @@ void stop_recording() {
 	update_controls();
 	RedrawWindow(main_window, NULL, NULL, RDW_INVALIDATE | RDW_UPDATENOW);
 	if (settings.beep_at_stop) {
-		beep(2000);
+		Beep(2000, 200);
 	}
 	if (settings.ask_to_play) {
 		if (MessageBox(main_window, L"Play the recording now?", L"Recording Finished", MB_YESNO | MB_ICONQUESTION) == IDYES) {
@@ -636,7 +638,7 @@ void pause_recording() {
 	recording_paused = true;
 	recording_pause_time = get_time();
 	if (settings.beep_at_stop) {
-		beep(2000);
+		Beep(2000, 200);
 	}
 }
 
@@ -644,11 +646,11 @@ void resume_recording() {
 	if (!recording_running || !recording_paused) {
 		return;
 	}
+	if (settings.beep_at_start) {
+		Beep(5000, 200);
+	}
 	recording_start_time += get_time() - recording_pause_time;
 	recording_paused = false;
-	if (settings.beep_at_start) {
-		beep(5000);
-	}
 }
 
 HWND create_dialog(int width, const wchar_t* title, WNDPROC proc) {
@@ -718,12 +720,8 @@ HWND add_form(HWND window, int* row, const wchar_t* type, const wchar_t* label, 
 }
 
 void update_settings() {
-	if (settings.stay_on_top) {
-		SetWindowPos(main_window, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
-	}
-	else {
-		SetWindowPos(main_window, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
-	}
+	SetWindowPos(main_window, settings.stay_on_top ? HWND_TOPMOST : HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+	SetStretchBltMode(render_context, settings.better_preview ? HALFTONE : COLORONCOLOR);
 	save_data(L"Settings", &settings, sizeof(settings));
 }
 
@@ -750,6 +748,9 @@ LRESULT CALLBACK settings_proc(HWND window, UINT message, WPARAM wparam, LPARAM 
 			add_form(window, &row, L"checkbox", L"Hide from taskbar while recording", &settings.hide_from_taskbar);
 			add_form(window, &row, NULL, NULL, NULL);
 			add_form(window, &row, L"checkbox", L"Ask to play recording when finished", &settings.ask_to_play);
+			add_form(window, &row, NULL, NULL, NULL);
+			add_form(window, &row, L"checkbox", L"High quality preview", &settings.better_preview);
+			add_form(window, &row, L"checkbox", L"Disable preview while recording", &settings.disable_preview);
 			add_form(window, &row, NULL, NULL, NULL);
 			add_form(window, &row, L"checkbox", L"Beep before recording starts", &settings.beep_at_start);
 			add_form(window, &row, L"checkbox", L"Beep after recording stops", &settings.beep_at_stop);
@@ -787,29 +788,33 @@ LRESULT CALLBACK settings_proc(HWND window, UINT message, WPARAM wparam, LPARAM 
 
 void draw_preview() {
 	RECT rect = { 3, 66, main_rect.right - 3, main_rect.bottom - 81 };
-	if (get_rect_width(&rect) > 10 && get_rect_height(&rect) > 10) {
-		int width = get_rect_width(&rect);
-		int height = get_rect_height(&rect);
-		width = min(width, height * capture_width / capture_height);
-		height = min(height, width * capture_height / capture_width);
-		int middle_x = (rect.left + rect.right) / 2;
-		int middle_y = (rect.top + rect.bottom) / 2;
-		if (capture_stretch) {
-			int min_width = min(capture_width, width);
-			int min_height = min(capture_height, height);
-			int start_x = middle_x - min_width / 2;
-			int start_y = middle_y - (min_height + 1) / 2;
-			AcquireSRWLockShared(&capture_lock);
-			StretchDIBits(render_context, start_x, start_y, min_width, min_height, 0, 0, source_width, source_height, capture_buffer, (const BITMAPINFO*)&capture_info, DIB_RGB_COLORS, SRCCOPY);
-			ReleaseSRWLockShared(&capture_lock);
-		}
-		else {
-			int start_x = middle_x - width / 2;
-			int start_y = middle_y - (height + 1) / 2;
-			AcquireSRWLockShared(&capture_lock);
-			StretchDIBits(render_context, start_x, start_y, width, height, 0, 0, source_width, source_height, capture_buffer, (const BITMAPINFO*)&capture_info, DIB_RGB_COLORS, SRCCOPY);
-			ReleaseSRWLockShared(&capture_lock);
-		}
+	if (get_rect_width(&rect) < 10 || get_rect_height(&rect) < 10) {
+		return;
+	}
+	int width = get_rect_width(&rect);
+	int height = get_rect_height(&rect);
+	width = min(width, height * capture_width / capture_height);
+	height = min(height, width * capture_height / capture_width);
+	if (capture_stretch) {
+		width = min(capture_width, width);
+		height = min(capture_height, height);
+	}
+	int start_x = (rect.left + rect.right) / 2 - width / 2;
+	int start_y = (rect.top + rect.bottom) / 2 - (height + 1) / 2;
+	if (recording_running && settings.disable_preview) {
+		rect.left = start_x;
+		rect.top = start_y;
+		rect.right = rect.left + width;
+		rect.bottom = rect.top + height;
+		FillRect(render_context, &rect, black_brush);
+		SetTextColor(render_context, RGB(255, 255, 255));
+		SelectObject(render_context, display_font);
+		DrawText(render_context, L"Preview Disabled", -1, &rect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+	}
+	else {
+		AcquireSRWLockShared(&capture_lock);
+		StretchDIBits(render_context, start_x, start_y, width, height, 0, 0, source_width, source_height, capture_buffer, (const BITMAPINFO*)&capture_info, DIB_RGB_COLORS, SRCCOPY);
+		ReleaseSRWLockShared(&capture_lock);
 	}
 }
 
@@ -867,7 +872,6 @@ LRESULT CALLBACK window_proc(HWND window, UINT message, WPARAM wparam, LPARAM lp
 			render_bitmap = CreateCompatibleBitmap(main_context, GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN));
 			SelectObject(render_context, render_bitmap);
 			SetBkMode(render_context, TRANSPARENT);
-			SetStretchBltMode(render_context, HALFTONE);
 			load_images();
 			create_controls();
 			place_controls();
