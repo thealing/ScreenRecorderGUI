@@ -95,12 +95,32 @@ void beep(int frequency) {
 	CloseHandle(thread);
 }
 
+bool is_actual_window(HWND window) {
+	return GetWindowLong(window, GWL_STYLE) & (WS_THICKFRAME | WS_DLGFRAME);
+}
+
+void get_window_rect(HWND window, RECT* rect) {
+	if (is_actual_window(window)) {
+		DwmGetWindowAttribute(window, DWMWA_EXTENDED_FRAME_BOUNDS, rect, sizeof(RECT));
+	}
+	else {
+		GetWindowRect(window, rect);
+	}
+}
+
 void fit_window_rect(HWND window, RECT* rect) {
-	if (GetWindowLong(window, GWL_STYLE) & WS_SIZEBOX) {
-		// for windows 10
-		rect->left += 8;
-		rect->top += 1;
-		rect->right -= 8;
-		rect->bottom -= 8;
+	if (is_actual_window(window)) {
+		RECT real_rect;
+		DwmGetWindowAttribute(window, DWMWA_EXTENDED_FRAME_BOUNDS, &real_rect, sizeof(RECT));
+		rect->right = real_rect.right - rect->left;
+		rect->bottom = real_rect.bottom - rect->top;
+		rect->left = real_rect.left - rect->left;
+		rect->top = real_rect.top - rect->top;
+	}
+	else {
+		rect->right = rect->right - rect->left;
+		rect->bottom = rect->bottom - rect->top;
+		rect->left = 0;
+		rect->top = 0;
 	}
 }
