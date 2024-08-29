@@ -30,7 +30,13 @@
 #pragma comment(lib, "mfuuid.lib")
 #pragma comment(lib, "dwmapi.lib")
 
-#define CHECK(x) if ((x)) printf("error on line %d: %d\n", __LINE__, (x))
+#define CHECK(x) check(x, #x)
+
+void check(HRESULT result, const char* expr) {
+	if (FAILED(result)) {
+		printf("\"%s\" returned error %08x\n", expr, result);
+	}
+}
 
 double get_time() {
 	LARGE_INTEGER counter;
@@ -92,8 +98,7 @@ bool is_actual_window(HWND window) {
 }
 
 void get_window_rect(HWND window, RECT* rect) {
-	if (is_actual_window(window)) {
-		DwmGetWindowAttribute(window, DWMWA_EXTENDED_FRAME_BOUNDS, rect, sizeof(RECT));
+	if (is_actual_window(window) && SUCCEEDED(DwmGetWindowAttribute(window, DWMWA_EXTENDED_FRAME_BOUNDS, rect, sizeof(RECT)))) {
 	}
 	else {
 		GetWindowRect(window, rect);
@@ -102,7 +107,7 @@ void get_window_rect(HWND window, RECT* rect) {
 
 void fit_window_rect(HWND window, RECT* rect) {
 	if (is_actual_window(window)) {
-		RECT real_rect;
+		RECT real_rect = *rect;
 		DwmGetWindowAttribute(window, DWMWA_EXTENDED_FRAME_BOUNDS, &real_rect, sizeof(RECT));
 		rect->right = real_rect.right - rect->left;
 		rect->bottom = real_rect.bottom - rect->top;

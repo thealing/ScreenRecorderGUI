@@ -22,6 +22,13 @@ struct Settings {
 	bool disable_preview;
 };
 
+struct Audio_Player {
+	bool playing;
+	IMMDevice* device;
+	IAudioClient* audio_client;
+	IAudioRenderClient* render_client;
+};
+
 struct Audio_Input {
 	bool active;
 	IMMDevice* audio_device;
@@ -31,6 +38,7 @@ struct Audio_Input {
 	WAVEFORMATEX* wave_format;
 	DWORD stream_index;
 	HANDLE thread;
+	Audio_Player player;
 };
 
 BITMAPINFOHEADER capture_info;
@@ -577,6 +585,14 @@ void encode_proc() {
 		CHECK(sink_writer->GetStatistics(video_stream_index, &stats));
 		recording_time = stats.llLastTimestampProcessed / 10000;
 		recording_size = stats.qwByteCountProcessed;
+		if (audio_mode & 1) {
+			CHECK(sink_writer->GetStatistics(system_audio.stream_index, &stats));
+			recording_size += stats.qwByteCountProcessed;
+		}
+		if (audio_mode & 2) {
+			CHECK(sink_writer->GetStatistics(microphone_audio.stream_index, &stats));
+			recording_size += stats.qwByteCountProcessed;
+		}
 		meas_total += frame_end_time - frame_start_time;
 		meas_count++;
 		if (frame_start_time > meas_time + meas_interval) {
@@ -603,7 +619,7 @@ void audio_proc(Audio_Input* input) {
 		UINT32 frame_count;
 		DWORD flags;
 		input->capture_client->GetBuffer(&frame_buffer, &frame_count, &flags, NULL, NULL);
-		if (recording_paused) {
+		if (recording_paused || frame_count == 0) {
 			input->capture_client->ReleaseBuffer(frame_count);
 			continue;
 		}
@@ -629,6 +645,40 @@ void audio_proc(Audio_Input* input) {
 	input->audio_client->Stop();
 }
 
+void start_player(Audio_Player* player, Audio_Input* input) {
+	if (player->playing) {
+		return;
+	}
+	player->playing = true;
+	IMMDeviceEnumerator* device_enumerator;
+	CoCreateInstance(__uuidof(MMDeviceEnumerator), nullptr, CLSCTX_ALL, __uuidof(IMMDeviceEnumerator), (void**)&device_enumerator);
+	device_enumerator->GetDefaultAudioEndpoint(eRender, eConsole, &player->device);
+	device_enumerator->Release();
+	player->device->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr, (void**)&player->audio_client);
+	WAVEFORMATEX* wave_format;
+	player->audio_client->GetMixFormat(&wave_format);
+	player->audio_client->Initialize(AUDCLNT_SHAREMODE_SHARED, AUDCLNT_STREAMFLAGS_EVENTCALLBACK, 0, 0, wave_format, nullptr);
+	player->audio_client->GetService(__uuidof(IAudioRenderClient), (void**)&player->render_client);
+	player->audio_client->SetEventHandle(input->audio_event);
+	UINT32 buffer_size;
+	player->audio_client->GetBufferSize(&buffer_size);
+	BYTE* data;
+	player->render_client->GetBuffer(buffer_size, &data);
+	player->render_client->ReleaseBuffer(buffer_size, AUDCLNT_BUFFERFLAGS_SILENT);
+	player->audio_client->Start();
+}
+
+void stop_player(Audio_Player* player) {
+	if (!player->playing) {
+		return;
+	}
+	player->playing = false;
+	player->audio_client->Stop();
+	player->render_client->Release();
+	player->audio_client->Release();
+	player->device->Release();
+}
+
 void start_audio(Audio_Input* input, EDataFlow source) {
 	if (input->active) {
 		return;
@@ -639,31 +689,38 @@ void start_audio(Audio_Input* input, EDataFlow source) {
 	device_enumerator->GetDefaultAudioEndpoint(source, eConsole, &input->audio_device);
 	device_enumerator->Release();
 	if (input->audio_device == NULL) {
-		input->active = false;
 		if (source == eRender) {
 			MessageBox(main_window, L"No output devices!", L"Audio capture warning", MB_ICONWARNING);
 		}
 		if (source == eCapture) {
 			MessageBox(main_window, L"No input devices!", L"Audio capture warning", MB_ICONWARNING);
 		}
+	reset:
+		input->active = false;
 		PostMessage(audio_source_list, CB_SETCURSEL, 0, 0);
 		PostMessage(main_window, WM_COMMAND, MAKEWPARAM(0, CBN_SELCHANGE), (LPARAM)audio_source_list);
 		return;
 	}
 	input->audio_device->Activate(__uuidof(IAudioClient), CLSCTX_ALL, NULL, (void**)&input->audio_client);
 	input->audio_client->GetMixFormat(&input->wave_format);
-	{	// other formats may not work
-		input->wave_format->wFormatTag = WAVE_FORMAT_PCM;
-		input->wave_format->nSamplesPerSec = 48000;
-		input->wave_format->wBitsPerSample = 16;
-		input->wave_format->nBlockAlign = input->wave_format->nChannels * input->wave_format->wBitsPerSample / 8;
-		input->wave_format->nAvgBytesPerSec = input->wave_format->nSamplesPerSec * input->wave_format->nBlockAlign;
-		input->wave_format->cbSize = 0;
+	DWORD flags = AUDCLNT_STREAMFLAGS_EVENTCALLBACK;
+	if (source == eRender) {
+		flags |= AUDCLNT_STREAMFLAGS_LOOPBACK;
 	}
-	input->audio_client->Initialize(AUDCLNT_SHAREMODE_SHARED, AUDCLNT_STREAMFLAGS_LOOPBACK | AUDCLNT_STREAMFLAGS_EVENTCALLBACK, 0, 0, input->wave_format, NULL);
+	HRESULT result = input->audio_client->Initialize(AUDCLNT_SHAREMODE_SHARED, flags, 0, 0, input->wave_format, NULL);
+	if (FAILED(result)) {
+		MessageBox(main_window, L"Failed to initialize capture!", L"Audio capture warning", MB_ICONWARNING);
+		CoTaskMemFree(input->wave_format);
+		input->audio_client->Release();
+		input->audio_device->Release();
+		goto reset;
+	}
 	input->audio_client->GetService(__uuidof(IAudioCaptureClient), (void**)&input->capture_client);
 	input->audio_event = CreateEvent(NULL, FALSE, FALSE, NULL);
 	input->audio_client->SetEventHandle(input->audio_event);
+	if (source == eRender) {
+		start_player(&input->player, input);
+	}
 }
 
 void stop_audio(Audio_Input* input) {
@@ -676,6 +733,7 @@ void stop_audio(Audio_Input* input) {
 	input->audio_device->Release();
 	CloseHandle(input->audio_event);
 	CoTaskMemFree(input->wave_format);
+	stop_player(&input->player);
 }
 
 void update_audio() {
@@ -826,6 +884,8 @@ void resume_recording() {
 	if (!recording_running || !recording_paused) {
 		return;
 	}
+	UpdateWindow(main_window);
+	WaitForSingleObject(frame_event, INFINITE);
 	if (settings.beep_at_start) {
 		Beep(5000, 200);
 	}
