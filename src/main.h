@@ -98,10 +98,9 @@ bool is_actual_window(HWND window) {
 }
 
 void get_window_rect(HWND window, RECT* rect) {
-	if (is_actual_window(window) && SUCCEEDED(DwmGetWindowAttribute(window, DWMWA_EXTENDED_FRAME_BOUNDS, rect, sizeof(RECT)))) {
-	}
-	else {
-		GetWindowRect(window, rect);
+	GetWindowRect(window, rect);
+	if (is_actual_window(window)) {
+		DwmGetWindowAttribute(window, DWMWA_EXTENDED_FRAME_BOUNDS, rect, sizeof(RECT));
 	}
 }
 

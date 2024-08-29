@@ -41,6 +41,8 @@ struct Audio_Input {
 	Audio_Player player;
 };
 
+Audio_Input microphone_audio;
+Audio_Input system_audio;
 BITMAPINFOHEADER capture_info;
 bool capture_running;
 bool capture_stretch;
@@ -77,6 +79,9 @@ HFONT fps_font;
 HFONT main_font;
 HMODULE main_instance;
 HPEN outline_pen;
+HWND audio_source_edit;
+HWND audio_source_label;
+HWND audio_source_list;
 HWND bitrate_edit;
 HWND bitrate_label;
 HWND cpu_label;
@@ -91,27 +96,25 @@ HWND pause_button;
 HWND settings_button;
 HWND settings_window;
 HWND size_label;
-HWND video_source_edit;
-HWND video_source_label;
-HWND video_source_list;
-HWND audio_source_label;
-HWND audio_source_list;
-HWND audio_source_edit;
 HWND source_window;
 HWND start_button;
 HWND stop_button;
 HWND stretch_checkbox;
 HWND time_label;
+HWND video_source_edit;
+HWND video_source_label;
+HWND video_source_list;
 HWND width_edit;
 HWND width_label;
 IMFSinkWriter* sink_writer;
+int audio_mode;
 int capture_bitrate;
 int capture_framerate;
 int capture_height;
 int capture_width;
 int source_height;
-int source_width;
 int source_mode;
+int source_width;
 int64_t recording_size;
 int64_t recording_time;
 RECT main_rect;
@@ -120,9 +123,6 @@ Settings settings;
 size_t capture_size_max;
 SRWLOCK capture_lock;
 void* capture_buffer;
-Audio_Input system_audio;
-Audio_Input microphone_audio;
-int audio_mode;
 
 LRESULT CALLBACK selection_proc(HWND window, UINT message, WPARAM wparam, LPARAM lparam) {
 	static HBITMAP draw_bitmap;
@@ -984,6 +984,20 @@ void init_settings() {
 	update_settings();
 }
 
+void init_config() {
+	load_data(L"framerate", &capture_framerate, sizeof(capture_framerate));
+	load_data(L"bitrate", &capture_bitrate, sizeof(capture_bitrate));
+	load_data(L"audiomode", &audio_mode, sizeof(audio_mode));
+	PostMessage(audio_source_list, CB_SETCURSEL, (WPARAM)audio_mode, 0);
+	PostMessage(main_window, WM_COMMAND, MAKEWPARAM(0, CBN_SELCHANGE), (LPARAM)audio_source_list);
+}
+
+void save_config() {
+	save_data(L"framerate", &capture_framerate, sizeof(capture_framerate));
+	save_data(L"bitrate", &capture_bitrate, sizeof(capture_bitrate));
+	save_data(L"audiomode", &audio_mode, sizeof(audio_mode));
+}
+
 LRESULT CALLBACK settings_proc(HWND window, UINT message, WPARAM wparam, LPARAM lparam) {
 	static Settings backup;
 	switch (message) {
@@ -1135,6 +1149,7 @@ LRESULT CALLBACK window_proc(HWND window, UINT message, WPARAM wparam, LPARAM lp
 			break;
 		}
 		case WM_DESTROY: {
+			save_config();
 			PostQuitMessage(0);
 			break;
 		}
@@ -1392,6 +1407,7 @@ int main() {
 	RegisterClass(&wc);
 	CreateWindow(wc.lpszClassName, L"Scabinic", WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN | WS_VISIBLE, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, NULL, NULL, NULL, NULL);
 	init_settings();
+	init_config();
 	MSG msg;
 	while (GetMessage(&msg, NULL, 0, 0) > 0) {
 		TranslateMessage(&msg);
