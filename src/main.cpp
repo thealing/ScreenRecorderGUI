@@ -703,6 +703,14 @@ void start_audio(Audio_Input* input, EDataFlow source) {
 	}
 	input->audio_device->Activate(__uuidof(IAudioClient), CLSCTX_ALL, NULL, (void**)&input->audio_client);
 	input->audio_client->GetMixFormat(&input->wave_format);
+	{	// Media Foundation needs PCM audio input
+		input->wave_format->wFormatTag = WAVE_FORMAT_PCM;
+		//input->wave_format->nSamplesPerSec = 48000;
+		input->wave_format->wBitsPerSample = 16;
+		input->wave_format->nBlockAlign = input->wave_format->nChannels * input->wave_format->wBitsPerSample / 8;
+		input->wave_format->nAvgBytesPerSec = input->wave_format->nSamplesPerSec * input->wave_format->nBlockAlign;
+		input->wave_format->cbSize = 0;
+	}
 	DWORD flags = AUDCLNT_STREAMFLAGS_EVENTCALLBACK;
 	if (source == eRender) {
 		flags |= AUDCLNT_STREAMFLAGS_LOOPBACK;
