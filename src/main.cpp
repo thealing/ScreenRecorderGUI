@@ -22,6 +22,17 @@ struct Settings {
 	bool disable_preview;
 };
 
+struct Audio_Input {
+	bool active;
+	IMMDevice* audio_device;
+	IAudioClient* audio_client;
+	IAudioCaptureClient* capture_client;
+	HANDLE audio_event;
+	WAVEFORMATEX* wave_format;
+	DWORD stream_index;
+	HANDLE thread;
+};
+
 BITMAPINFOHEADER capture_info;
 bool capture_running;
 bool capture_stretch;
@@ -34,7 +45,7 @@ double meas_encode_fps;
 double meas_interval;
 double recording_pause_time;
 double recording_start_time;
-DWORD stream_index;
+DWORD video_stream_index;
 HANDLE capture_thread;
 HANDLE encode_thread;
 HANDLE frame_event;
@@ -72,9 +83,12 @@ HWND pause_button;
 HWND settings_button;
 HWND settings_window;
 HWND size_label;
-HWND source_edit;
-HWND source_label;
-HWND source_list;
+HWND video_source_edit;
+HWND video_source_label;
+HWND video_source_list;
+HWND audio_source_label;
+HWND audio_source_list;
+HWND audio_source_edit;
 HWND source_window;
 HWND start_button;
 HWND stop_button;
@@ -98,6 +112,9 @@ Settings settings;
 size_t capture_size_max;
 SRWLOCK capture_lock;
 void* capture_buffer;
+Audio_Input system_audio;
+Audio_Input microphone_audio;
+int audio_mode;
 
 LRESULT CALLBACK selection_proc(HWND window, UINT message, WPARAM wparam, LPARAM lparam) {
 	static HBITMAP draw_bitmap;
@@ -190,8 +207,9 @@ LRESULT CALLBACK selection_proc(HWND window, UINT message, WPARAM wparam, LPARAM
 }
 
 LRESULT CALLBACK source_list_proc(HWND window, UINT message, WPARAM wparam, LPARAM lparam) {
-	if (message == WM_PAINT) {
-		PostMessage(source_edit, EM_SETSEL, (WPARAM)-1, 0);
+	if (message == WM_PAINT || message == WM_COMMAND) {
+		PostMessage(video_source_edit, EM_SETSEL, (WPARAM)-1, 0);
+		PostMessage(audio_source_edit, EM_SETSEL, (WPARAM)-1, 0);
 	}
 	return DefSubclassProc(window, message, wparam, lparam);
 }
@@ -374,7 +392,7 @@ void reset_capture() {
 }
 
 void update_source() {
-	source_mode = (int)SendMessage(source_list, CB_GETCURSEL, 0, 0);
+	source_mode = (int)SendMessage(video_source_list, CB_GETCURSEL, 0, 0);
 	if (source_mode == 0) {
 		source_window = GetDesktopWindow();
 		GetWindowRect(source_window, &source_rect);
@@ -417,15 +435,25 @@ HWND create_control(const wchar_t* name, const wchar_t* label, int styles) {
 }
 
 void create_controls() {
-	source_label = create_control(L"STATIC", L"Source:", SS_CENTERIMAGE);
-	source_list = create_control(L"COMBOBOX", NULL, CBS_AUTOHSCROLL | CBS_DROPDOWN | CBS_HASSTRINGS);
-	SendMessage(source_list, CB_ADDSTRING, 0, (LPARAM)L"Fullscreen");
-	SendMessage(source_list, CB_ADDSTRING, 0, (LPARAM)L"Rectangle");
-	SendMessage(source_list, CB_ADDSTRING, 0, (LPARAM)L"Window");
-	SendMessage(source_list, CB_SETCURSEL, 0, 0);
-	SetWindowSubclass(source_list, (SUBCLASSPROC)source_list_proc, 0, 0);
-	source_edit = FindWindowEx(source_list, NULL, L"EDIT", NULL);
-	SendMessage(source_edit, EM_SETREADONLY, TRUE, 0);
+	video_source_label = create_control(L"STATIC", L"Video Source:", SS_CENTERIMAGE);
+	video_source_list = create_control(L"COMBOBOX", NULL, CBS_AUTOHSCROLL | CBS_DROPDOWN | CBS_HASSTRINGS);
+	SendMessage(video_source_list, CB_ADDSTRING, 0, (LPARAM)L"Fullscreen");
+	SendMessage(video_source_list, CB_ADDSTRING, 0, (LPARAM)L"Rectangle");
+	SendMessage(video_source_list, CB_ADDSTRING, 0, (LPARAM)L"Window");
+	SetWindowSubclass(video_source_list, (SUBCLASSPROC)source_list_proc, 0, 0);
+	video_source_edit = FindWindowEx(video_source_list, NULL, L"EDIT", NULL);
+	SendMessage(video_source_edit, EM_SETREADONLY, TRUE, 0);
+	SendMessage(video_source_list, CB_SETCURSEL, 0, 0);
+	audio_source_label = create_control(L"STATIC", L"Audio Source:", SS_CENTERIMAGE);
+	audio_source_list = create_control(L"COMBOBOX", NULL, CBS_AUTOHSCROLL | CBS_DROPDOWN | CBS_HASSTRINGS);
+	SendMessage(audio_source_list, CB_ADDSTRING, 0, (LPARAM)L"None");
+	SendMessage(audio_source_list, CB_ADDSTRING, 0, (LPARAM)L"System");
+	SendMessage(audio_source_list, CB_ADDSTRING, 0, (LPARAM)L"Microphone");
+	SendMessage(audio_source_list, CB_ADDSTRING, 0, (LPARAM)L"System + Microphone");
+	SetWindowSubclass(audio_source_list, (SUBCLASSPROC)source_list_proc, 0, 0);
+	audio_source_edit = FindWindowEx(audio_source_list, NULL, L"EDIT", NULL);
+	SendMessage(audio_source_edit, EM_SETREADONLY, TRUE, 0);
+	SendMessage(audio_source_list, CB_SETCURSEL, 0, 0);
 	width_label = create_control(L"STATIC", L"Width:", SS_CENTERIMAGE);
 	width_edit = create_control(L"EDIT", L"", WS_BORDER | ES_RIGHT | ES_NUMBER);
 	height_label = create_control(L"STATIC", L"Height:", SS_CENTERIMAGE);
@@ -470,7 +498,8 @@ void update_controls() {
 	if (recording_running && focused_control != NULL) {
 		SetFocus(NULL);
 	}
-	EnableWindow(source_list, !recording_running);
+	EnableWindow(video_source_list, !recording_running);
+	EnableWindow(audio_source_list, !recording_running);
 	capture_stretch = SendMessage(stretch_checkbox, BM_GETCHECK, 0, 0) != BST_UNCHECKED;
 	EnableWindow(width_edit, !recording_running && capture_stretch);
 	EnableWindow(height_edit, !recording_running && capture_stretch);
@@ -488,8 +517,10 @@ void update_controls() {
 }
 
 void place_controls() {
-	MoveWindow(source_label, 10, 10, 80, 20, TRUE);
-	MoveWindow(source_list, 100, 10, 150, 100, TRUE);
+	MoveWindow(video_source_label, 10, 10, 80, 20, TRUE);
+	MoveWindow(video_source_list, 100, 10, 150, 100, TRUE);
+	MoveWindow(audio_source_label, 10, 35, 80, 20, TRUE);
+	MoveWindow(audio_source_list, 100, 35, 150, 100, TRUE);
 	MoveWindow(width_label, 270, 10, 50, 20, TRUE);
 	MoveWindow(width_edit, 330, 10, 50, 20, TRUE);
 	MoveWindow(height_label, 270, 35, 50, 20, TRUE);
@@ -511,8 +542,6 @@ void place_controls() {
 }
 
 void encode_proc() {
-	recording_start_time = get_time();
-	sink_writer->BeginWriting();
 	double meas_time = recording_start_time;
 	double meas_total = 0;
 	int meas_count = 0;
@@ -540,12 +569,12 @@ void encode_proc() {
 		CHECK(sample->AddBuffer(buffer));
 		sample->SetSampleTime(llround((frame_start_time - recording_start_time) * 10000000));
 		sample->SetSampleDuration(10000000 / capture_framerate);
-		CHECK(sink_writer->WriteSample(stream_index, sample));
+		CHECK(sink_writer->WriteSample(video_stream_index, sample));
 		sample->Release();
 		buffer->Release();
 		double frame_end_time = get_time();
 		MF_SINK_WRITER_STATISTICS stats = { sizeof(stats) };
-		CHECK(sink_writer->GetStatistics(stream_index, &stats));
+		CHECK(sink_writer->GetStatistics(video_stream_index, &stats));
 		recording_time = stats.llLastTimestampProcessed / 10000;
 		recording_size = stats.qwByteCountProcessed;
 		meas_total += frame_end_time - frame_start_time;
@@ -557,7 +586,133 @@ void encode_proc() {
 			meas_count = 0;
 		}
 	}
-	sink_writer->Finalize();
+}
+
+void audio_proc(Audio_Input* input) {
+	if (!input->active) {
+		return;
+	}
+	input->audio_client->Start();
+	while (recording_running) {
+		WaitForSingleObject(input->audio_event, INFINITE);
+		if (!recording_running) {
+			break;
+		}
+		double frame_time = get_time();
+		BYTE* frame_buffer;
+		UINT32 frame_count;
+		DWORD flags;
+		input->capture_client->GetBuffer(&frame_buffer, &frame_count, &flags, NULL, NULL);
+		if (recording_paused) {
+			input->capture_client->ReleaseBuffer(frame_count);
+			continue;
+		}
+		UINT32 buffer_size = frame_count * input->wave_format->nBlockAlign;
+		BYTE* data;
+		IMFMediaBuffer* buffer;
+		MFCreateMemoryBuffer(buffer_size, &buffer);
+		buffer->SetCurrentLength(buffer_size);
+		buffer->Lock(&data, NULL, NULL);
+		memcpy(data, frame_buffer, buffer_size);
+		buffer->Unlock();
+		input->capture_client->ReleaseBuffer(frame_count);
+		IMFSample* sample;
+		MFCreateSample(&sample);
+		sample->AddBuffer(buffer);
+		int64_t duration = 10000000 * frame_count / input->wave_format->nSamplesPerSec;
+		sample->SetSampleTime(llround((frame_time - recording_start_time) * 10000000) - duration);
+		sample->SetSampleDuration(duration);
+		CHECK(sink_writer->WriteSample(input->stream_index, sample));
+		sample->Release();
+		buffer->Release();
+	}
+	input->audio_client->Stop();
+}
+
+void start_audio(Audio_Input* input, EDataFlow source) {
+	if (input->active) {
+		return;
+	}
+	input->active = true;
+	IMMDeviceEnumerator* device_enumerator;
+	CoCreateInstance(__uuidof(MMDeviceEnumerator), NULL, CLSCTX_ALL, __uuidof(IMMDeviceEnumerator), (void**)&device_enumerator);
+	device_enumerator->GetDefaultAudioEndpoint(source, eConsole, &input->audio_device);
+	device_enumerator->Release();
+	if (input->audio_device == NULL) {
+		input->active = false;
+		if (source == eRender) {
+			MessageBox(main_window, L"No output devices!", L"Audio capture warning", MB_ICONWARNING);
+		}
+		if (source == eCapture) {
+			MessageBox(main_window, L"No input devices!", L"Audio capture warning", MB_ICONWARNING);
+		}
+		PostMessage(audio_source_list, CB_SETCURSEL, 0, 0);
+		PostMessage(main_window, WM_COMMAND, MAKEWPARAM(0, CBN_SELCHANGE), (LPARAM)audio_source_list);
+		return;
+	}
+	input->audio_device->Activate(__uuidof(IAudioClient), CLSCTX_ALL, NULL, (void**)&input->audio_client);
+	input->audio_client->GetMixFormat(&input->wave_format);
+	{	// other formats may not work
+		input->wave_format->wFormatTag = WAVE_FORMAT_PCM;
+		input->wave_format->nSamplesPerSec = 48000;
+		input->wave_format->wBitsPerSample = 16;
+		input->wave_format->nBlockAlign = input->wave_format->nChannels * input->wave_format->wBitsPerSample / 8;
+		input->wave_format->nAvgBytesPerSec = input->wave_format->nSamplesPerSec * input->wave_format->nBlockAlign;
+		input->wave_format->cbSize = 0;
+	}
+	input->audio_client->Initialize(AUDCLNT_SHAREMODE_SHARED, AUDCLNT_STREAMFLAGS_LOOPBACK | AUDCLNT_STREAMFLAGS_EVENTCALLBACK, 0, 0, input->wave_format, NULL);
+	input->audio_client->GetService(__uuidof(IAudioCaptureClient), (void**)&input->capture_client);
+	input->audio_event = CreateEvent(NULL, FALSE, FALSE, NULL);
+	input->audio_client->SetEventHandle(input->audio_event);
+}
+
+void stop_audio(Audio_Input* input) {
+	if (!input->active) {
+		return;
+	}
+	input->active = false;
+	input->capture_client->Release();
+	input->audio_client->Release();
+	input->audio_device->Release();
+	CloseHandle(input->audio_event);
+	CoTaskMemFree(input->wave_format);
+}
+
+void update_audio() {
+	if (audio_mode & 1) {
+		stop_audio(&system_audio);
+	}
+	if (audio_mode & 2) {
+		stop_audio(&microphone_audio);
+	}
+	audio_mode = (int)SendMessage(audio_source_list, CB_GETCURSEL, 0, 0);
+	if (audio_mode & 1) {
+		start_audio(&system_audio, eRender);
+	}
+	if (audio_mode & 2) {
+		start_audio(&microphone_audio, eCapture);
+	}
+}
+
+void add_audio_stream(Audio_Input* input) {
+	if (!input->active) {
+		return;
+	}
+	IMFMediaType* output_type;
+	MFCreateMediaType(&output_type);
+	output_type->SetGUID(MF_MT_MAJOR_TYPE, MFMediaType_Audio);
+	output_type->SetGUID(MF_MT_SUBTYPE, MFAudioFormat_AAC);
+	output_type->SetUINT32(MF_MT_AUDIO_BITS_PER_SAMPLE, 16);
+	output_type->SetUINT32(MF_MT_AUDIO_AVG_BYTES_PER_SECOND, 24000);
+	output_type->SetUINT32(MF_MT_AUDIO_SAMPLES_PER_SECOND, input->wave_format->nSamplesPerSec);
+	output_type->SetUINT32(MF_MT_AUDIO_NUM_CHANNELS, input->wave_format->nChannels);
+	IMFMediaType* input_type;
+	MFCreateMediaType(&input_type);
+	MFInitMediaTypeFromWaveFormatEx(input_type, input->wave_format, sizeof(*input->wave_format) + input->wave_format->cbSize);
+	CHECK(sink_writer->AddStream(output_type, &input->stream_index));
+	CHECK(sink_writer->SetInputMediaType(input->stream_index, input_type, NULL));
+	output_type->Release();
+	input_type->Release();
 }
 
 void start_recording() {
@@ -570,6 +725,7 @@ void start_recording() {
 	recording_size = 0;
 	output_path = L"out.mp4";
 	update_controls();
+	InvalidateRect(main_window, NULL, FALSE);
 	if (settings.hide_at_start) {
 		ShowWindow(main_window, SW_MINIMIZE);
 	}
@@ -588,8 +744,6 @@ void start_recording() {
 	MFSetAttributeSize(output_type, MF_MT_FRAME_SIZE, capture_width, capture_height);
 	MFSetAttributeRatio(output_type, MF_MT_FRAME_RATE, capture_framerate, 1);
 	MFCreateSinkWriterFromURL(output_path, NULL, NULL, &sink_writer);
-	CHECK(sink_writer->AddStream(output_type, &stream_index));
-	output_type->Release();
 	IMFMediaType* input_type;
 	MFCreateMediaType(&input_type);
 	input_type->SetGUID(MF_MT_MAJOR_TYPE, MFMediaType_Video);
@@ -597,14 +751,28 @@ void start_recording() {
 	input_type->SetUINT32(MF_MT_INTERLACE_MODE, MFVideoInterlace_Progressive);
 	MFSetAttributeSize(input_type, MF_MT_FRAME_SIZE, source_width, source_height);
 	MFSetAttributeRatio(input_type, MF_MT_FRAME_RATE, capture_framerate, 1);
-	IMFAttributes* encoder_attributes;
-	MFCreateAttributes(&encoder_attributes, 0);
-	// customize codec
-	CHECK(sink_writer->SetInputMediaType(stream_index, input_type, encoder_attributes));
+	CHECK(sink_writer->AddStream(output_type, &video_stream_index));
+	CHECK(sink_writer->SetInputMediaType(video_stream_index, input_type, NULL));
+	output_type->Release();
+	input_type->Release();
+	if (audio_mode & 1) {
+		add_audio_stream(&system_audio);
+	}
+	if (audio_mode & 2) {
+		add_audio_stream(&microphone_audio);
+	}
 	if (settings.beep_at_start) {
 		Beep(5000, 200);
 	}
+	sink_writer->BeginWriting();
+	recording_start_time = get_time();
 	encode_thread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)encode_proc, NULL, 0, NULL);
+	if (audio_mode & 1) {
+		system_audio.thread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)audio_proc, &system_audio, 0, NULL);
+	}
+	if (audio_mode & 2) {
+		microphone_audio.thread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)audio_proc, &microphone_audio, 0, NULL);
+	}
 }
 
 void stop_recording() {
@@ -613,8 +781,20 @@ void stop_recording() {
 	}
 	recording_running = false;
 	recording_paused = false;
+	SetEvent(frame_event);
 	WaitForSingleObject(encode_thread, INFINITE);
 	CloseHandle(encode_thread);
+	if (audio_mode & 1) {
+		SetEvent(system_audio.audio_event);
+		WaitForSingleObject(system_audio.thread, INFINITE);
+		CloseHandle(system_audio.thread);
+	}
+	if (audio_mode & 2) {
+		SetEvent(microphone_audio.audio_event);
+		WaitForSingleObject(microphone_audio.thread, INFINITE);
+		CloseHandle(microphone_audio.thread);
+	}
+	sink_writer->Finalize();
 	sink_writer->Release();
 	if (settings.hide_at_start) {
 		ShowWindow(main_window, SW_SHOWNORMAL);
@@ -876,6 +1056,7 @@ LRESULT CALLBACK window_proc(HWND window, UINT message, WPARAM wparam, LPARAM lp
 			create_controls();
 			place_controls();
 			update_source();
+			update_audio();
 			update_controls();
 			SetWindowsHookEx(WH_KEYBOARD_LL, keyboard_hook_proc, main_instance, 0);
 			break;
@@ -908,14 +1089,14 @@ LRESULT CALLBACK window_proc(HWND window, UINT message, WPARAM wparam, LPARAM lp
 					update_controls();
 				}
 				wchar_t source_title[128];
-				GetWindowText(source_edit, source_title, _countof(source_title));
+				GetWindowText(video_source_edit, source_title, _countof(source_title));
 				wchar_t new_title[128];
 				GetWindowText(source_window, new_title, _countof(new_title));
 				if (wcslen(new_title) == 0) {
 					wcscpy(new_title, L"Unnamed Window");
 				}
 				if (wcscmp(source_title, new_title) != 0) {
-					SetWindowText(source_edit, new_title);
+					SetWindowText(video_source_edit, new_title);
 				}
 			}
 			EnumChildWindows(main_window, custom_draw_proc, NULL);
@@ -1049,8 +1230,11 @@ LRESULT CALLBACK window_proc(HWND window, UINT message, WPARAM wparam, LPARAM lp
 			HWND child = (HWND)lparam;
 			switch (HIWORD(wparam)) {
 				case CBN_SELCHANGE: {
-					if (child == source_list) {
+					if (child == video_source_list) {
 						update_source();
+					}
+					if (child == audio_source_list) {
+						update_audio();
 					}
 					break;
 				}

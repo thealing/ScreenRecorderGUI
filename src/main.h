@@ -16,6 +16,8 @@
 #include <mftransform.h>
 #include <codecapi.h>
 #include <dwmapi.h>
+#include <mmdeviceapi.h>
+#include <audioclient.h>
 
 #pragma comment(lib, "user32.lib")
 #pragma comment(lib, "gdi32.lib")
@@ -28,7 +30,7 @@
 #pragma comment(lib, "mfuuid.lib")
 #pragma comment(lib, "dwmapi.lib")
 
-#define CHECK(x) if ((x)) printf("error on line %d: %d\n", __LINE__, GetLastError())
+#define CHECK(x) if ((x)) printf("error on line %d: %d\n", __LINE__, (x))
 
 double get_time() {
 	LARGE_INTEGER counter;
@@ -86,7 +88,7 @@ int load_data(const wchar_t* name, void* data, int size) {
 }
 
 bool is_actual_window(HWND window) {
-	return GetWindowLong(window, GWL_STYLE) & (WS_THICKFRAME | WS_DLGFRAME);
+	return GetWindowLong(window, GWL_STYLE) & WS_OVERLAPPEDWINDOW;
 }
 
 void get_window_rect(HWND window, RECT* rect) {
