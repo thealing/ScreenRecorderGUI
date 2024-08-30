@@ -112,11 +112,11 @@ int capture_bitrate;
 int capture_framerate;
 int capture_height;
 int capture_width;
-int aligned_height;
-int aligned_width;
 int source_height;
 int source_mode;
 int source_width;
+int aligned_width;
+int aligned_height;
 int64_t recording_size;
 int64_t recording_time;
 RECT main_rect;
@@ -321,14 +321,9 @@ void capture_proc() {
 		due_time.QuadPart = due_time.QuadPart + 10000000 / capture_framerate;
 		SetWaitableTimer(timer, &due_time, 0, NULL, NULL, FALSE);
 		double current_time = get_time();
-		if (capture_stretch) {
-			StretchBlt(capture_context, 0, 0, capture_width, capture_height, source_context, source_rect.left, source_rect.top, source_width, source_height, SRCCOPY);
-		}
-		else {
-			BitBlt(capture_context, 0, 0, source_width, source_height, source_context, source_rect.left, source_rect.top, SRCCOPY);
-		}
+		BitBlt(capture_context, 0, 0, source_width, source_height, source_context, source_rect.left, source_rect.top, SRCCOPY);
 		AcquireSRWLockExclusive(&capture_lock);
-		GetDIBits(capture_context, capture_bitmap, 0, capture_height, capture_buffer, (LPBITMAPINFO)&capture_info, DIB_RGB_COLORS);
+		GetDIBits(capture_context, capture_bitmap, 0, aligned_height, capture_buffer, (LPBITMAPINFO)&capture_info, DIB_RGB_COLORS);
 		ReleaseSRWLockExclusive(&capture_lock);
 		SetEvent(frame_event);
 		RedrawWindow(main_window, NULL, NULL, RDW_INVALIDATE);
@@ -350,8 +345,6 @@ void start_capture() {
 		return;
 	}
 	capture_running = true;
-	aligned_width = next_multiple(32, capture_width);
-	aligned_height = next_multiple(2, capture_height);
 	capture_info.biSize = sizeof(capture_info);
 	capture_info.biWidth = aligned_width;
 	capture_info.biHeight = -aligned_height;
@@ -360,9 +353,7 @@ void start_capture() {
 	capture_info.biSizeImage = aligned_width * aligned_height * 4;
 	capture_info.biCompression = BI_RGB;
 	if (capture_info.biSizeImage > capture_size_max) {
-		capture_running = false;
 		meas_capture_fps = 0;
-		InvalidateRect(main_window, NULL, FALSE);
 		return;
 	}
 	capture_buffer = _aligned_malloc(capture_info.biSizeImage, 16);
@@ -409,6 +400,8 @@ void reset_capture() {
 	source_height += source_height % 2;
 	capture_width = source_width;
 	capture_height = source_height;
+	aligned_width = next_multiple(32, source_width);
+	aligned_height = next_multiple(2, source_height);
 	start_capture();
 }
 
@@ -795,10 +788,6 @@ void add_audio_stream(Audio_Input* input) {
 }
 
 void start_recording() {
-	if (!capture_running) {
-		MessageBox(main_window, L"Capture is not running!", L"Recording error", MB_ICONERROR);
-		return;
-	}
 	if (recording_running) {
 		return;
 	}
@@ -824,7 +813,7 @@ void start_recording() {
 	output_type->SetGUID(MF_MT_SUBTYPE, MFVideoFormat_H264);
 	output_type->SetUINT32(MF_MT_INTERLACE_MODE, MFVideoInterlace_Progressive);
 	output_type->SetUINT32(MF_MT_AVG_BITRATE, capture_bitrate * 1000);
-	output_type->SetUINT32(MF_MT_DEFAULT_STRIDE, aligned_width);
+	output_type->SetUINT32(MF_MT_DEFAULT_STRIDE, capture_width);
 	MFSetAttributeSize(output_type, MF_MT_FRAME_SIZE, capture_width, capture_height);
 	MFSetAttributeRatio(output_type, MF_MT_FRAME_RATE, capture_framerate, 1);
 	MFCreateSinkWriterFromURL(output_path, NULL, NULL, &sink_writer);
@@ -834,7 +823,7 @@ void start_recording() {
 	input_type->SetGUID(MF_MT_SUBTYPE, MFVideoFormat_NV12);
 	input_type->SetUINT32(MF_MT_INTERLACE_MODE, MFVideoInterlace_Progressive);
 	input_type->SetUINT32(MF_MT_DEFAULT_STRIDE, aligned_width);
-	MFSetAttributeSize(input_type, MF_MT_FRAME_SIZE, capture_width, capture_height);
+	MFSetAttributeSize(input_type, MF_MT_FRAME_SIZE, source_width, source_height);
 	MFSetAttributeRatio(input_type, MF_MT_FRAME_RATE, capture_framerate, 1);
 	CHECK(sink_writer->AddStream(output_type, &video_stream_index));
 	CHECK(sink_writer->SetInputMediaType(video_stream_index, input_type, NULL));
@@ -1094,7 +1083,7 @@ void draw_preview() {
 	}
 	else {
 		AcquireSRWLockShared(&capture_lock);
-		StretchDIBits(render_context, start_x, start_y, width, height, 0, 0, capture_width, capture_height, capture_buffer, (const BITMAPINFO*)&capture_info, DIB_RGB_COLORS, SRCCOPY);
+		StretchDIBits(render_context, start_x, start_y, width, height, 0, 0, source_width, source_height, capture_buffer, (const BITMAPINFO*)&capture_info, DIB_RGB_COLORS, SRCCOPY);
 		ReleaseSRWLockShared(&capture_lock);
 	}
 }
