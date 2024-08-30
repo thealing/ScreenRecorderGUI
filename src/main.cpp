@@ -112,6 +112,8 @@ int capture_bitrate;
 int capture_framerate;
 int capture_height;
 int capture_width;
+int aligned_height;
+int aligned_width;
 int source_height;
 int source_mode;
 int source_width;
@@ -319,9 +321,14 @@ void capture_proc() {
 		due_time.QuadPart = due_time.QuadPart + 10000000 / capture_framerate;
 		SetWaitableTimer(timer, &due_time, 0, NULL, NULL, FALSE);
 		double current_time = get_time();
-		BitBlt(capture_context, 0, 0, source_width, source_height, source_context, source_rect.left, source_rect.top, SRCCOPY);
+		if (capture_stretch) {
+			StretchBlt(capture_context, 0, 0, capture_width, capture_height, source_context, source_rect.left, source_rect.top, source_width, source_height, SRCCOPY);
+		}
+		else {
+			BitBlt(capture_context, 0, 0, source_width, source_height, source_context, source_rect.left, source_rect.top, SRCCOPY);
+		}
 		AcquireSRWLockExclusive(&capture_lock);
-		GetDIBits(capture_context, capture_bitmap, 0, source_height, capture_buffer, (LPBITMAPINFO)&capture_info, DIB_RGB_COLORS);
+		GetDIBits(capture_context, capture_bitmap, 0, capture_height, capture_buffer, (LPBITMAPINFO)&capture_info, DIB_RGB_COLORS);
 		ReleaseSRWLockExclusive(&capture_lock);
 		SetEvent(frame_event);
 		RedrawWindow(main_window, NULL, NULL, RDW_INVALIDATE);
@@ -343,21 +350,25 @@ void start_capture() {
 		return;
 	}
 	capture_running = true;
+	aligned_width = next_multiple(32, capture_width);
+	aligned_height = next_multiple(2, capture_height);
 	capture_info.biSize = sizeof(capture_info);
-	capture_info.biWidth = source_width;
-	capture_info.biHeight = -source_height;
+	capture_info.biWidth = aligned_width;
+	capture_info.biHeight = -aligned_height;
 	capture_info.biPlanes = 1;
 	capture_info.biBitCount = 32;
-	capture_info.biSizeImage = source_width * source_height * 4;
+	capture_info.biSizeImage = aligned_width * aligned_height * 4;
 	capture_info.biCompression = BI_RGB;
 	if (capture_info.biSizeImage > capture_size_max) {
+		capture_running = false;
 		meas_capture_fps = 0;
+		InvalidateRect(main_window, NULL, FALSE);
 		return;
 	}
 	capture_buffer = _aligned_malloc(capture_info.biSizeImage, 16);
 	source_context = GetWindowDC(source_window);
 	capture_context = CreateCompatibleDC(source_context);
-	capture_bitmap = CreateCompatibleBitmap(source_context, source_width, source_height);
+	capture_bitmap = CreateCompatibleBitmap(source_context, aligned_width, aligned_height);
 	SelectObject(capture_context, capture_bitmap);
 	frame_event = CreateEvent(NULL, FALSE, FALSE, NULL);
 	stop_event = CreateEvent(NULL, FALSE, FALSE, NULL);
@@ -392,8 +403,10 @@ void update_capture() {
 
 void reset_capture() {
 	stop_capture();
-	source_width = (get_rect_width(&source_rect) + 31) / 32 * 32;
-	source_height = (get_rect_height(&source_rect) + 1) / 2 * 2;
+	source_width = next_multiple(2, get_rect_width(&source_rect));
+	source_height = next_multiple(2, get_rect_height(&source_rect));
+	source_width += source_width % 2;
+	source_height += source_height % 2;
 	capture_width = source_width;
 	capture_height = source_height;
 	start_capture();
@@ -563,13 +576,13 @@ void encode_proc() {
 		}
 		double frame_start_time = get_time();
 		IMFMediaBuffer* buffer;
-		int encode_size = source_width * source_height * 3 / 2;
+		int encode_size = aligned_width * aligned_height * 3 / 2;
 		MFCreateAlignedMemoryBuffer(encode_size, MF_16_BYTE_ALIGNMENT, &buffer);
 		buffer->SetCurrentLength(encode_size);
 		BYTE* data;
 		buffer->Lock(&data, NULL, NULL);
 		AcquireSRWLockShared(&capture_lock);
-		convert_bgr32_to_nv12((uint32_t*)capture_buffer, data, data + source_width * source_height, source_width, source_height);
+		convert_bgr32_to_nv12((uint32_t*)capture_buffer, data, data + aligned_width * aligned_height, aligned_width, aligned_height);
 		ReleaseSRWLockShared(&capture_lock);
 		buffer->Unlock();
 		IMFSample* sample;
@@ -782,6 +795,10 @@ void add_audio_stream(Audio_Input* input) {
 }
 
 void start_recording() {
+	if (!capture_running) {
+		MessageBox(main_window, L"Capture is not running!", L"Recording error", MB_ICONERROR);
+		return;
+	}
 	if (recording_running) {
 		return;
 	}
@@ -807,6 +824,7 @@ void start_recording() {
 	output_type->SetGUID(MF_MT_SUBTYPE, MFVideoFormat_H264);
 	output_type->SetUINT32(MF_MT_INTERLACE_MODE, MFVideoInterlace_Progressive);
 	output_type->SetUINT32(MF_MT_AVG_BITRATE, capture_bitrate * 1000);
+	output_type->SetUINT32(MF_MT_DEFAULT_STRIDE, aligned_width);
 	MFSetAttributeSize(output_type, MF_MT_FRAME_SIZE, capture_width, capture_height);
 	MFSetAttributeRatio(output_type, MF_MT_FRAME_RATE, capture_framerate, 1);
 	MFCreateSinkWriterFromURL(output_path, NULL, NULL, &sink_writer);
@@ -815,7 +833,8 @@ void start_recording() {
 	input_type->SetGUID(MF_MT_MAJOR_TYPE, MFMediaType_Video);
 	input_type->SetGUID(MF_MT_SUBTYPE, MFVideoFormat_NV12);
 	input_type->SetUINT32(MF_MT_INTERLACE_MODE, MFVideoInterlace_Progressive);
-	MFSetAttributeSize(input_type, MF_MT_FRAME_SIZE, source_width, source_height);
+	input_type->SetUINT32(MF_MT_DEFAULT_STRIDE, aligned_width);
+	MFSetAttributeSize(input_type, MF_MT_FRAME_SIZE, capture_width, capture_height);
 	MFSetAttributeRatio(input_type, MF_MT_FRAME_RATE, capture_framerate, 1);
 	CHECK(sink_writer->AddStream(output_type, &video_stream_index));
 	CHECK(sink_writer->SetInputMediaType(video_stream_index, input_type, NULL));
@@ -1075,7 +1094,7 @@ void draw_preview() {
 	}
 	else {
 		AcquireSRWLockShared(&capture_lock);
-		StretchDIBits(render_context, start_x, start_y, width, height, 0, 0, source_width, source_height, capture_buffer, (const BITMAPINFO*)&capture_info, DIB_RGB_COLORS, SRCCOPY);
+		StretchDIBits(render_context, start_x, start_y, width, height, 0, 0, capture_width, capture_height, capture_buffer, (const BITMAPINFO*)&capture_info, DIB_RGB_COLORS, SRCCOPY);
 		ReleaseSRWLockShared(&capture_lock);
 	}
 }
@@ -1348,16 +1367,16 @@ LRESULT CALLBACK window_proc(HWND window, UINT message, WPARAM wparam, LPARAM lp
 					wchar_t buffer[12];
 					GetWindowText(child, buffer, _countof(buffer));
 					if (child == width_edit) {
-						capture_width = _wtoi(buffer);
+						capture_width = max(1, _wtoi(buffer));
 					}
 					if (child == height_edit) {
-						capture_height = _wtoi(buffer);
+						capture_height = max(1, _wtoi(buffer));
 					}
 					if (child == framerate_edit) {
-						capture_framerate = _wtoi(buffer);
+						capture_framerate = max(1, _wtoi(buffer));
 					}
 					if (child == bitrate_edit) {
-						capture_bitrate = _wtoi(buffer);
+						capture_bitrate =max(1,  _wtoi(buffer));
 					}
 					if (SendMessage(keep_ratio_checkbox, BM_GETCHECK, 0, 0) != BST_UNCHECKED) {
 						if (child == width_edit) {
@@ -1367,8 +1386,8 @@ LRESULT CALLBACK window_proc(HWND window, UINT message, WPARAM wparam, LPARAM lp
 							capture_width = capture_height * source_width / source_height;
 						}
 					}
-					capture_width = max(1, capture_width);
-					capture_height = max(1, capture_height);
+					capture_width = next_multiple(2, capture_width);
+					capture_height = next_multiple(2, capture_height);
 					if (child == width_edit || child == height_edit || child == framerate_edit) {
 						update_capture();
 					}

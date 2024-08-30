@@ -38,6 +38,10 @@ void check(HRESULT result, const char* expr) {
 	}
 }
 
+int next_multiple(int x, int y) {
+	return (x + y - 1) / x * x;
+}
+
 double get_time() {
 	LARGE_INTEGER counter;
 	QueryPerformanceCounter(&counter);
