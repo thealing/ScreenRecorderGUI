@@ -18,6 +18,7 @@
 #include <dwmapi.h>
 #include <mmdeviceapi.h>
 #include <audioclient.h>
+#include <wmcodecdsp.h>
 
 #pragma comment(lib, "user32.lib")
 #pragma comment(lib, "gdi32.lib")
