@@ -466,13 +466,24 @@ void draw_cursor() {
 	if (!video_options.draw_cursor) {
 		return;
 	}
-	CURSORINFO cursor_info = { sizeof(cursor_info) };
-	GetCursorInfo(&cursor_info);
+	static CURSORINFO cursor_info;
+	cursor_info.cbSize = sizeof(cursor_info);
+	if (!GetCursorInfo(&cursor_info)) {
+		return;
+	}
 	if (cursor_info.flags != CURSOR_SHOWING && !video_options.always_cursor) {
 		return;
 	}
-	ICONINFO icon_info = {};
-	GetIconInfo(cursor_info.hCursor, &icon_info);
+	static ICONINFO icon_info;
+	ICONINFO new_icon_info;
+	if (GetIconInfo(cursor_info.hCursor, &new_icon_info)) {
+		DeleteObject(icon_info.hbmColor);
+		DeleteObject(icon_info.hbmMask);
+		icon_info = new_icon_info;
+	}
+	if (icon_info.hbmColor == NULL && icon_info.hbmMask == NULL) {
+		return;
+	}
 	screen_to_window(source_window, &cursor_info.ptScreenPos);
 	BITMAP icon_bitmap;
 	GetObject(icon_info.hbmColor ? icon_info.hbmColor : icon_info.hbmMask, sizeof(BITMAP), &icon_bitmap);
@@ -520,8 +531,6 @@ void draw_cursor() {
 	}
 	free(pixels);
 	free(masks);
-	DeleteObject(icon_info.hbmColor);
-	DeleteObject(icon_info.hbmMask);
 }
 
 void capture_proc() {
