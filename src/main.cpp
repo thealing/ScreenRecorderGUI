@@ -1,5 +1,48 @@
 #include "main.h"
 
+enum {
+	VIDEO_SOURCE_FULLSCREEN,
+	VIDEO_SOURCE_RECTANGLE,
+	VIDEO_SOURCE_WINDOW,
+};
+
+enum {
+	AUDIO_INPUT_SYSTEM = 0x1,
+	AUDIO_INPUT_MICROPHONE = 0x2,
+};
+
+enum {
+	CAPTURE_DEFAULT,
+	CAPTURE_BITBLT_GETDIBITS,
+	CAPTURE_BITBLT_GETBITMAPBITS,
+	CAPTURE_CAPTUREBLT_GETDIBITS,
+	CAPTURE_CAPTUREBLT_GETBITMAPBITS,
+	CAPTURE_PRINTWINDOW_GETDIBITS,
+	CAPTURE_PRINTWINDOW_GETBITMAPBITS,
+	CAPTURE_GETDIBITS,
+	CAPTURE_GETBITMAPBITS,
+	CAPTURE_DIRECT3D_9_GETFRONTBUFFERDATA,
+	CAPTURE_DIRECT3D_9_GETRENDERTARGETDATA,
+	CAPTURE_DXGI_OUTPUT_DUPLICATION,
+	CAPTURE_COUNT,
+};
+
+enum {
+	SOURCE_TYPE_ENTIRE_WINDOW,
+	SOURCE_TYPE_CLIENT_AREA,
+};
+
+enum {
+	RESIZER_RESIZER_DSP,
+	RESIZER_VIDEO_PROCESSOR_MFT,
+};
+
+enum {
+	RESIZE_MODE_STRETCH,
+	RESIZE_MODE_LETTERBOX,
+	RESIZE_MODE_CROP,
+};
+
 struct Hotkey {
 	wchar_t key;
 	bool control;
@@ -18,12 +61,24 @@ struct Settings {
 	Hotkey stop_hotkey;
 	Hotkey pause_hotkey;
 	Hotkey resume_hotkey;
-	bool better_preview;
+	bool quality_preview;
 	bool disable_preview;
+	bool stop_on_close;
+};
+
+struct Video_Options {
+	int capture_method;
+	int source_type;
+	int resize_mode;
+	int resizer_method;
+	bool quality_resizer;
+	bool gpu_resizer;
+	bool draw_cursor;
+	bool always_cursor;
 };
 
 struct Audio_Options {
-	bool force_mono;
+	int channel_count;
 };
 
 struct Audio_Player {
@@ -44,13 +99,14 @@ struct Audio_Input {
 	HANDLE thread;
 	Audio_Player player;
 	IMFTransform* resampler;
+	DWORD bytes_per_sec;
+	HRESULT error;
 };
 
-Audio_Input microphone_audio;
-Audio_Input system_audio;
-BITMAPINFOHEADER capture_info;
+Audio_Input microphone_input;
+Audio_Input system_input;
 bool capture_running;
-bool capture_stretch;
+bool capture_resize;
 bool lock_controls;
 bool recording_paused;
 bool recording_running;
@@ -65,7 +121,6 @@ HANDLE capture_thread;
 HANDLE encode_thread;
 HANDLE frame_event;
 HANDLE stop_event;
-HBITMAP capture_bitmap;
 HBITMAP pause_image;
 HBITMAP render_bitmap;
 HBITMAP resume_image;
@@ -75,10 +130,8 @@ HBITMAP stop_image;
 HBRUSH background_brush;
 HBRUSH black_brush;
 HBRUSH white_brush;
-HDC capture_context;
 HDC main_context;
 HDC render_context;
-HDC source_context;
 HFONT display_font;
 HFONT fps_font;
 HFONT main_font;
@@ -104,7 +157,7 @@ HWND size_label;
 HWND source_window;
 HWND start_button;
 HWND stop_button;
-HWND stretch_checkbox;
+HWND resize_checkbox;
 HWND time_label;
 HWND video_source_edit;
 HWND video_source_label;
@@ -115,14 +168,15 @@ HWND video_button;
 HWND audio_button;
 HWND video_window;
 HWND audio_window;
+BITMAPINFOHEADER capture_info;
 IMFSinkWriter* sink_writer;
-int audio_mode;
+int audio_sources;
 int capture_bitrate;
 int capture_framerate;
 int capture_height;
 int capture_width;
 int source_height;
-int source_mode;
+int video_source;
 int source_width;
 int aligned_width;
 int aligned_height;
@@ -135,6 +189,76 @@ size_t capture_size_max;
 SRWLOCK capture_lock;
 void* capture_buffer;
 Audio_Options audio_options;
+IMFTransform* resizer;
+bool resample_audio;
+Video_Options video_options;
+Capture_Interface** captures;
+Capture_Interface* current_capture;
+
+void init_captures() {
+	if (captures != NULL) {
+		return;
+	}
+	captures = new Capture_Interface*[CAPTURE_COUNT];
+	captures[CAPTURE_BITBLT_GETDIBITS] = new Capture_BitBlt_GetDIBits;
+	captures[CAPTURE_BITBLT_GETBITMAPBITS] = new Capture_BitBlt_GetBitmapBits;
+	captures[CAPTURE_CAPTUREBLT_GETDIBITS] = new Capture_CaptureBlt_GetDIBits;
+	captures[CAPTURE_CAPTUREBLT_GETBITMAPBITS] = new Capture_CaptureBlt_GetBitmapBits;
+	captures[CAPTURE_PRINTWINDOW_GETDIBITS] = new Capture_PrintWindow_GetDIBits;
+	captures[CAPTURE_PRINTWINDOW_GETBITMAPBITS] = new Capture_PrintWindow_GetBitmapBits;
+	captures[CAPTURE_GETDIBITS] = new Capture_GetDIBits;
+	captures[CAPTURE_GETBITMAPBITS] = new Capture_GetBitmapBits;
+	captures[CAPTURE_DIRECT3D_9_GETFRONTBUFFERDATA] = new Capture_Direct3D_9;
+	captures[CAPTURE_DIRECT3D_9_GETRENDERTARGETDATA] = new Capture_Direct3D_9;
+	captures[CAPTURE_DXGI_OUTPUT_DUPLICATION] = new Capture_DXGI_Output_Duplication;
+	captures[CAPTURE_DEFAULT] = new Capture_BitBlt_GetDIBits;
+}
+
+void get_window_rect(HWND window, RECT* rect) {
+	if (video_options.source_type == SOURCE_TYPE_ENTIRE_WINDOW) {
+		GetWindowRect(window, rect);
+		if (is_actual_window(window)) {
+			DwmGetWindowAttribute(window, DWMWA_EXTENDED_FRAME_BOUNDS, rect, sizeof(RECT));
+		}
+	}
+	if (video_options.source_type == SOURCE_TYPE_CLIENT_AREA) {
+		GetClientRect(window, rect);
+		POINT origin = { rect->left, rect->top };
+		ClientToScreen(window, &origin);
+		OffsetRect(rect, origin.x, origin.y);
+	}
+	clamp_window_rect(rect);
+}
+
+void fit_window_rect(HWND window, RECT* rect) {
+	if (video_options.source_type == SOURCE_TYPE_ENTIRE_WINDOW) {
+		if (is_actual_window(window)) {
+			RECT real_rect = *rect;
+			DwmGetWindowAttribute(window, DWMWA_EXTENDED_FRAME_BOUNDS, &real_rect, sizeof(RECT));
+			OffsetRect(&real_rect, -rect->left, -rect->top);
+			*rect = real_rect;
+		}
+		else {
+			OffsetRect(rect, -rect->left, -rect->top);
+		}
+	}
+	if (video_options.source_type == SOURCE_TYPE_CLIENT_AREA) {
+		GetClientRect(window, rect);
+	}
+	clamp_window_rect(rect);
+}
+
+void screen_to_window(HWND window, POINT* point) {
+	if (video_options.source_type == SOURCE_TYPE_ENTIRE_WINDOW) {
+		RECT rect;
+		get_window_rect(window, &rect);
+		point->x -= rect.left;
+		point->y -= rect.top;
+	}
+	if (video_options.source_type == SOURCE_TYPE_CLIENT_AREA) {
+		ScreenToClient(window, point);
+	}
+}
 
 LRESULT CALLBACK selection_proc(HWND window, UINT message, WPARAM wparam, LPARAM lparam) {
 	static HBITMAP draw_bitmap;
@@ -148,7 +272,7 @@ LRESULT CALLBACK selection_proc(HWND window, UINT message, WPARAM wparam, LPARAM
 	static RECT window_rect;
 	bool paint = false;
 	if (state == 0) {
-		state = source_mode;
+		state = video_source;
 		int screen_width = GetSystemMetrics(SM_CXSCREEN);
 		int screen_height = GetSystemMetrics(SM_CYSCREEN);
 		SetRect(&window_rect, 0, 0, screen_width, screen_height);
@@ -175,13 +299,13 @@ LRESULT CALLBACK selection_proc(HWND window, UINT message, WPARAM wparam, LPARAM
 			if (state == 2) {
 				int mouse_x = LOWORD(lparam);
 				int mouse_y = HIWORD(lparam);
-				if (source_mode == 1) {
+				if (video_source == VIDEO_SOURCE_RECTANGLE) {
 					selected_rect.left = min(start_x, mouse_x);
 					selected_rect.top = min(start_y, mouse_y);
 					selected_rect.right = max(start_x, mouse_x);
 					selected_rect.bottom = max(start_y, mouse_y);
 				}
-				if (source_mode == 2) {
+				if (video_source == VIDEO_SOURCE_WINDOW) {
 					POINT position = { mouse_x, mouse_y };
 					selected_window = get_window_under_point(position, window);
 					get_window_rect(selected_window, &selected_rect);
@@ -201,11 +325,11 @@ LRESULT CALLBACK selection_proc(HWND window, UINT message, WPARAM wparam, LPARAM
 				start_y = mouseY;
 			}
 			if (state == 3) {
-				if (source_mode == 1) {
+				if (video_source == VIDEO_SOURCE_RECTANGLE) {
 					source_window = GetDesktopWindow();
 					source_rect = selected_rect;
 				}
-				if (source_mode == 2) {
+				if (video_source == VIDEO_SOURCE_WINDOW) {
 					POINT position = { mouseX, mouseY };
 					source_window = selected_window;
 					source_rect = selected_rect;
@@ -236,6 +360,11 @@ LRESULT CALLBACK source_list_proc(HWND window, UINT message, WPARAM wparam, LPAR
 
 LRESULT CALLBACK edit_proc(HWND window, UINT message, WPARAM wparam, LPARAM lparam) {
 	if (message == WM_CHAR && wparam == VK_RETURN) {
+		DWORD end;
+		PostMessage(window, EM_GETSEL, NULL, (LPARAM)&end);
+		SetFocus(main_window);
+		SetFocus(window);
+		PostMessage(window, EM_SETSEL, end, end);
 		return 0;
 	}
 	return DefSubclassProc(window, message, wparam, lparam);
@@ -299,6 +428,20 @@ LRESULT CALLBACK form_hotkey_proc(HWND window, UINT message, WPARAM wparam, LPAR
 	return DefSubclassProc(window, message, wparam, lparam);
 }
 
+LRESULT CALLBACK form_list_proc(HWND window, UINT message, WPARAM wparam, LPARAM lparam) {
+	int* data = (int*)GetWindowLongPtr(window, GWLP_USERDATA);
+	if (message == WM_USER && wparam == 1) {
+		*data = (int)SendMessage(window, CB_GETCURSEL, 0, 0);
+	}
+	if (message == WM_USER && wparam == 0) {
+		SendMessage(window, CB_SETCURSEL, *data, 0);
+	}
+	if (message == WM_USER) {
+		return wparam;
+	}
+	return DefSubclassProc(window, message, wparam, lparam);
+}
+
 BOOL CALLBACK set_font_proc(HWND child, LPARAM lparam) {
 	if (SendMessage(child, WM_GETFONT, 0, 0) == NULL) {
 		SendMessage(child, WM_SETFONT, (WPARAM)lparam, 0);
@@ -319,6 +462,68 @@ BOOL CALLBACK custom_draw_proc(HWND child, LPARAM lparam) {
 	return TRUE;
 }
 
+void draw_cursor() {
+	if (!video_options.draw_cursor) {
+		return;
+	}
+	CURSORINFO cursor_info = { sizeof(cursor_info) };
+	GetCursorInfo(&cursor_info);
+	if (cursor_info.flags != CURSOR_SHOWING && !video_options.always_cursor) {
+		return;
+	}
+	ICONINFO icon_info = {};
+	GetIconInfo(cursor_info.hCursor, &icon_info);
+	screen_to_window(source_window, &cursor_info.ptScreenPos);
+	BITMAP icon_bitmap;
+	GetObject(icon_info.hbmColor ? icon_info.hbmColor : icon_info.hbmMask, sizeof(BITMAP), &icon_bitmap);
+	int width = icon_bitmap.bmWidth;
+	int height = icon_info.hbmColor ? icon_bitmap.bmHeight : icon_bitmap.bmHeight / 2;
+	BITMAPINFO bitmap_info = {};
+	bitmap_info.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+	bitmap_info.bmiHeader.biWidth = icon_bitmap.bmWidth;
+	bitmap_info.bmiHeader.biHeight = -icon_bitmap.bmHeight;
+	bitmap_info.bmiHeader.biSizeImage = icon_bitmap.bmWidth * icon_bitmap.bmHeight * 4;
+	bitmap_info.bmiHeader.biPlanes = 1;
+	bitmap_info.bmiHeader.biBitCount = 32;
+	bitmap_info.bmiHeader.biCompression = BI_RGB;
+	uint32_t* pixels = (uint32_t*)malloc(width * height * 4);
+	uint32_t* masks = (uint32_t*)malloc(width * height * 4);
+	static HDC context = CreateCompatibleDC(NULL);
+	if (icon_info.hbmColor) {
+		GetDIBits(context, icon_info.hbmColor, 0, height, pixels, &bitmap_info, DIB_RGB_COLORS);
+		GetDIBits(context, icon_info.hbmMask, 0, height, masks, &bitmap_info, DIB_RGB_COLORS);
+	}
+	else {
+		GetDIBits(context, icon_info.hbmMask, 0, height, pixels, &bitmap_info, DIB_RGB_COLORS);
+		GetDIBits(context, icon_info.hbmMask, height, height, masks, &bitmap_info, DIB_RGB_COLORS);
+	}
+	for (int i = 0; i < height; i++) {
+		for (int j = 0; j < width; j++) {
+			uint32_t pixel = *((uint32_t*)pixels + i * width + j);
+			uint32_t mask = *((uint32_t*)masks + i * width + j);
+			if (pixel == 0) {
+				continue;
+			}
+			int y = cursor_info.ptScreenPos.y - icon_info.yHotspot + i;
+			int x = cursor_info.ptScreenPos.x - icon_info.xHotspot + j;
+			if (x < 0 || x >= source_width || y < 0 || y >= source_height) {
+				continue;
+			}
+			uint32_t* dest = (uint32_t*)capture_buffer + y * aligned_width + x;
+			if (icon_info.hbmColor) {
+				*dest = pixel;
+			}
+			else {
+				*dest ^= mask;
+			}
+		}
+	}
+	free(pixels);
+	free(masks);
+	DeleteObject(icon_info.hbmColor);
+	DeleteObject(icon_info.hbmMask);
+}
+
 void capture_proc() {
 	HANDLE timer = CreateWaitableTimer(NULL, TRUE, NULL);
 	LARGE_INTEGER due_time;
@@ -331,10 +536,8 @@ void capture_proc() {
 		due_time.QuadPart = due_time.QuadPart + 10000000 / capture_framerate;
 		SetWaitableTimer(timer, &due_time, 0, NULL, NULL, FALSE);
 		double current_time = get_time();
-		BitBlt(capture_context, 0, 0, source_width, source_height, source_context, source_rect.left, source_rect.top, SRCCOPY);
-		AcquireSRWLockExclusive(&capture_lock);
-		GetDIBits(capture_context, capture_bitmap, 0, aligned_height, capture_buffer, (LPBITMAPINFO)&capture_info, DIB_RGB_COLORS);
-		ReleaseSRWLockExclusive(&capture_lock);
+		current_capture->get(capture_buffer, &capture_lock);
+		draw_cursor();
 		SetEvent(frame_event);
 		RedrawWindow(main_window, NULL, NULL, RDW_INVALIDATE);
 		meas_count++;
@@ -363,14 +566,25 @@ void start_capture() {
 	capture_info.biSizeImage = aligned_width * aligned_height * 4;
 	capture_info.biCompression = BI_RGB;
 	if (capture_info.biSizeImage > capture_size_max) {
+		capture_running = false;
+		meas_capture_fps = 0;
+		return;
+	}
+	Capture_Source source;
+	source.window = source_window;
+	source.client = video_options.source_type;
+	source.rect = source_rect;
+	source.width = source_width;
+	source.height = source_height;
+	source.stride = aligned_width;
+	init_captures();
+	current_capture = captures[video_options.capture_method];
+	if (FAILED(current_capture->start(source))) {
+		capture_running = false;
 		meas_capture_fps = 0;
 		return;
 	}
 	capture_buffer = _aligned_malloc(capture_info.biSizeImage, 16);
-	source_context = GetWindowDC(source_window);
-	capture_context = CreateCompatibleDC(source_context);
-	capture_bitmap = CreateCompatibleBitmap(source_context, aligned_width, aligned_height);
-	SelectObject(capture_context, capture_bitmap);
 	frame_event = CreateEvent(NULL, FALSE, FALSE, NULL);
 	stop_event = CreateEvent(NULL, FALSE, FALSE, NULL);
 	capture_thread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)capture_proc, NULL, 0, NULL);
@@ -391,48 +605,29 @@ void stop_capture() {
 	CloseHandle(capture_thread);
 	CloseHandle(frame_event);
 	CloseHandle(stop_event);
-	DeleteObject(capture_bitmap);
-	DeleteDC(capture_context);
-	ReleaseDC(source_window, source_context);
+	current_capture->stop();
 	_aligned_free(capture_buffer);
+}
+
+void update_dimensions() {
+	source_width = next_multiple(2, get_rect_width(&source_rect));
+	source_height = next_multiple(2, get_rect_height(&source_rect));
+	aligned_width = next_multiple(32, source_width);
+	aligned_height = next_multiple(2, source_height);
+	if (capture_resize) {
+		capture_width = next_multiple(2, capture_width);
+		capture_height = next_multiple(2, capture_height);
+	}
+	else {
+		capture_width = next_multiple(2, source_width);
+		capture_height = next_multiple(2, source_height);
+	}
 }
 
 void update_capture() {
 	stop_capture();
+	update_dimensions();
 	start_capture();
-}
-
-void reset_capture() {
-	stop_capture();
-	source_width = next_multiple(2, get_rect_width(&source_rect));
-	source_height = next_multiple(2, get_rect_height(&source_rect));
-	source_width += source_width % 2;
-	source_height += source_height % 2;
-	capture_width = source_width;
-	capture_height = source_height;
-	aligned_width = next_multiple(32, source_width);
-	aligned_height = next_multiple(2, source_height);
-	start_capture();
-}
-
-void update_source() {
-	source_mode = (int)SendMessage(video_source_list, CB_GETCURSEL, 0, 0);
-	if (source_mode == 0) {
-		source_window = GetDesktopWindow();
-		GetWindowRect(source_window, &source_rect);
-	}
-	else {
-		ShowWindow(main_window, SW_HIDE);
-		HWND selection_window = CreateWindowEx(WS_EX_LAYERED | WS_EX_TOPMOST, L"STATIC", L"", WS_POPUP | WS_VISIBLE, 0, 0, 0, 0, NULL, NULL, NULL, NULL);
-		SetWindowLongPtr(selection_window, GWLP_WNDPROC, (LONG_PTR)selection_proc);
-		MSG msg;
-		while (GetMessage(&msg, selection_window, 0, 0) > 0) {
-			TranslateMessage(&msg);
-			DispatchMessage(&msg);
-		}
-		ShowWindow(main_window, SW_SHOW);
-	}
-	reset_capture();
 }
 
 HBITMAP load_image(int id) {
@@ -484,7 +679,7 @@ void create_controls() {
 	width_edit = create_control(L"EDIT", L"", WS_BORDER | ES_RIGHT | ES_NUMBER);
 	height_label = create_control(L"STATIC", L"Height:", SS_CENTERIMAGE);
 	height_edit = create_control(L"EDIT", L"", WS_BORDER | ES_RIGHT | ES_NUMBER);
-	stretch_checkbox = create_control(L"BUTTON", L"Stretch", BS_AUTOCHECKBOX | BS_CHECKBOX);
+	resize_checkbox = create_control(L"BUTTON", L"Resize", BS_AUTOCHECKBOX | BS_CHECKBOX);
 	keep_ratio_checkbox = create_control(L"BUTTON", L"Keep Ratio", BS_AUTOCHECKBOX | BS_CHECKBOX);
 	framerate_label = create_control(L"STATIC", L"Frame Rate (FPS):", SS_CENTERIMAGE);
 	framerate_edit = create_control(L"EDIT", L"", WS_BORDER | ES_RIGHT | ES_NUMBER);
@@ -528,19 +723,22 @@ void update_controls() {
 	EnableWindow(audio_source_list, !recording_running);
 	EnableWindow(video_button, !recording_running);
 	EnableWindow(audio_button, !recording_running);
-	capture_stretch = SendMessage(stretch_checkbox, BM_GETCHECK, 0, 0) != BST_UNCHECKED;
-	EnableWindow(width_edit, !recording_running && capture_stretch);
-	EnableWindow(height_edit, !recording_running && capture_stretch);
-	SendMessage(width_edit, EM_SETREADONLY, !capture_stretch, 0);
-	SendMessage(height_edit, EM_SETREADONLY, !capture_stretch, 0);
-	EnableWindow(stretch_checkbox, !recording_running);
+	capture_resize = SendMessage(resize_checkbox, BM_GETCHECK, 0, 0) != BST_UNCHECKED;
+	EnableWindow(width_edit, !recording_running && capture_resize);
+	EnableWindow(height_edit, !recording_running && capture_resize);
+	SendMessage(width_edit, EM_SETREADONLY, !capture_resize, 0);
+	SendMessage(height_edit, EM_SETREADONLY, !capture_resize, 0);
+	EnableWindow(resize_checkbox, !recording_running);
 	EnableWindow(keep_ratio_checkbox, !recording_running);
 	EnableWindow(framerate_edit, !recording_running);
 	EnableWindow(bitrate_edit, !recording_running);
-	EnableWindow(start_button, !recording_running && video_window == NULL && audio_window == NULL);
+	EnableWindow(start_button, !recording_running);
 	EnableWindow(stop_button, recording_running);
 	EnableWindow(pause_button, recording_running);
 	EnableWindow(settings_button, settings_window == NULL);
+	if (video_window != NULL || audio_window != NULL) {
+		EnableWindow(start_button, FALSE);
+	}
 	lock_controls = false;
 }
 
@@ -555,7 +753,7 @@ void place_controls() {
 	MoveWindow(width_edit, 440, 10, 50, 20, TRUE);
 	MoveWindow(height_label, 380, 35, 50, 20, TRUE);
 	MoveWindow(height_edit, 440, 35, 50, 20, TRUE);
-	MoveWindow(stretch_checkbox, 520, 10, 75, 20, TRUE);
+	MoveWindow(resize_checkbox, 520, 10, 75, 20, TRUE);
 	MoveWindow(keep_ratio_checkbox, 520, 35, 75, 20, TRUE);
 	MoveWindow(framerate_label, 620, 10, 100, 20, TRUE);
 	MoveWindow(framerate_edit, 730, 10, 50, 20, TRUE);
@@ -571,11 +769,31 @@ void place_controls() {
 	MoveWindow(settings_button, main_rect.right - 65, main_rect.bottom - 65, 50, 50, TRUE);
 }
 
+void select_source() {
+	video_source = (int)SendMessage(video_source_list, CB_GETCURSEL, 0, 0);
+	if (video_source == VIDEO_SOURCE_FULLSCREEN) {
+		source_window = GetDesktopWindow();
+		GetWindowRect(source_window, &source_rect);
+	}
+	else {
+		ShowWindow(main_window, SW_HIDE);
+		HWND selection_window = CreateWindowEx(WS_EX_LAYERED | WS_EX_TOPMOST, L"STATIC", L"", WS_POPUP | WS_VISIBLE, 0, 0, 0, 0, NULL, NULL, NULL, NULL);
+		SetWindowLongPtr(selection_window, GWLP_WNDPROC, (LONG_PTR)selection_proc);
+		MSG msg;
+		while (GetMessage(&msg, selection_window, 0, 0) > 0) {
+			TranslateMessage(&msg);
+			DispatchMessage(&msg);
+		}
+		ShowWindow(main_window, SW_SHOW);
+	}
+	update_capture();
+}
+
 void encode_proc() {
 	double meas_time = recording_start_time;
 	double meas_total = 0;
 	int meas_count = 0;
-	while (recording_running) {
+	while (true) {
 		WaitForSingleObject(frame_event, INFINITE);
 		if (!recording_running) {
 			break;
@@ -595,24 +813,37 @@ void encode_proc() {
 		ReleaseSRWLockShared(&capture_lock);
 		buffer->Unlock();
 		IMFSample* sample;
-		CHECK(MFCreateSample(&sample));
-		CHECK(sample->AddBuffer(buffer));
+		MFCreateSample(&sample);
+		sample->AddBuffer(buffer);
 		sample->SetSampleTime(llround((frame_start_time - recording_start_time) * 10000000));
 		sample->SetSampleDuration(10000000 / capture_framerate);
+		if (resizer != NULL) {
+			CHECK(resizer->ProcessInput(0, sample, 0));
+			sample->Release();
+			buffer->Release();
+			DWORD output_size = capture_width * capture_height * 3 / 2;
+			MFCreateMemoryBuffer(output_size, &buffer);
+			MFT_OUTPUT_DATA_BUFFER output_data = {};
+			MFCreateSample(&output_data.pSample);
+			output_data.pSample->AddBuffer(buffer);
+			DWORD flags;
+			CHECK(resizer->ProcessOutput(0, 1, &output_data, &flags));
+			sample = output_data.pSample;
+		}
 		CHECK(sink_writer->WriteSample(video_stream_index, sample));
 		sample->Release();
 		buffer->Release();
 		double frame_end_time = get_time();
 		MF_SINK_WRITER_STATISTICS stats = { sizeof(stats) };
-		CHECK(sink_writer->GetStatistics(video_stream_index, &stats));
+		sink_writer->GetStatistics(video_stream_index, &stats);
 		recording_time = stats.llLastTimestampProcessed / 10000;
 		recording_size = stats.qwByteCountProcessed;
-		if (audio_mode & 1) {
-			CHECK(sink_writer->GetStatistics(system_audio.stream_index, &stats));
+		if (audio_sources & AUDIO_INPUT_SYSTEM) {
+			sink_writer->GetStatistics(system_input.stream_index, &stats);
 			recording_size += stats.qwByteCountProcessed;
 		}
-		if (audio_mode & 2) {
-			CHECK(sink_writer->GetStatistics(microphone_audio.stream_index, &stats));
+		if (audio_sources & AUDIO_INPUT_MICROPHONE) {
+			sink_writer->GetStatistics(microphone_input.stream_index, &stats);
 			recording_size += stats.qwByteCountProcessed;
 		}
 		meas_total += frame_end_time - frame_start_time;
@@ -627,11 +858,11 @@ void encode_proc() {
 }
 
 void audio_proc(Audio_Input* input) {
-	if (!input->active) {
+	if (!input->active || FAILED(input->error)) {
 		return;
 	}
 	input->audio_client->Start();
-	while (recording_running) {
+	while (true) {
 		WaitForSingleObject(input->audio_event, INFINITE);
 		if (!recording_running) {
 			break;
@@ -657,15 +888,17 @@ void audio_proc(Audio_Input* input) {
 		IMFSample* sample;
 		MFCreateSample(&sample);
 		sample->AddBuffer(buffer);
-		{ // run through resampler
+		{
 			CHECK(input->resampler->ProcessInput(0, sample, 0));
+			sample->Release();
+			buffer->Release();
+			DWORD output_size = next_multiple(4, input->bytes_per_sec * frame_count / input->wave_format->nSamplesPerSec + 1);
+			MFCreateMemoryBuffer(output_size, &buffer);
 			MFT_OUTPUT_DATA_BUFFER output_data = {};
 			MFCreateSample(&output_data.pSample);
-			buffer->Release();
-			MFCreateMemoryBuffer(1000000, &buffer); // how to get correct size???
 			output_data.pSample->AddBuffer(buffer);
+			DWORD flags;
 			CHECK(input->resampler->ProcessOutput(0, 1, &output_data, &flags));
-			sample->Release();
 			sample = output_data.pSample;
 		}
 		int64_t duration = 10000000 * frame_count / input->wave_format->nSamplesPerSec;
@@ -770,18 +1003,18 @@ void stop_audio(Audio_Input* input) {
 }
 
 void update_audio() {
-	if (audio_mode & 1) {
-		stop_audio(&system_audio);
+	if (audio_sources & AUDIO_INPUT_SYSTEM) {
+		stop_audio(&system_input);
 	}
-	if (audio_mode & 2) {
-		stop_audio(&microphone_audio);
+	if (audio_sources & AUDIO_INPUT_MICROPHONE) {
+		stop_audio(&microphone_input);
 	}
-	audio_mode = (int)SendMessage(audio_source_list, CB_GETCURSEL, 0, 0);
-	if (audio_mode & 1) {
-		start_audio(&system_audio, eRender);
+	audio_sources = (int)SendMessage(audio_source_list, CB_GETCURSEL, 0, 0);
+	if (audio_sources & AUDIO_INPUT_SYSTEM) {
+		start_audio(&system_input, eRender);
 	}
-	if (audio_mode & 2) {
-		start_audio(&microphone_audio, eCapture);
+	if (audio_sources & AUDIO_INPUT_MICROPHONE) {
+		start_audio(&microphone_input, eCapture);
 	}
 }
 
@@ -789,22 +1022,33 @@ void add_audio_stream(Audio_Input* input) {
 	if (!input->active) {
 		return;
 	}
+	input->error = 0;
 	IMFMediaType* input_type;
 	MFCreateMediaType(&input_type);
 	MFInitMediaTypeFromWaveFormatEx(input_type, input->wave_format, sizeof(*input->wave_format) + input->wave_format->cbSize);
-	CoCreateInstance(CLSID_AudioResamplerMediaObject, NULL, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&input->resampler));
-	CHECK(input->resampler->SetInputType(0, input_type, 0));
+	CoCreateInstance(CLSID_CResamplerMediaObject, NULL, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&input->resampler));
+	input->error = input->resampler->SetInputType(0, input_type, 0);
 	input_type->Release();
+	if (FAILED(input->error)) {
+		MessageBox(main_window, L"Input format not supported by the resampler!", L"Audio error", MB_ICONERROR);
+		return;
+	}
 	WAVEFORMATEX output_format = {};
 	output_format.wFormatTag = WAVE_FORMAT_PCM;
 	output_format.nSamplesPerSec = 48000;
 	output_format.wBitsPerSample = 16;
-	output_format.nChannels = audio_options.force_mono ? 1 : input->wave_format->nChannels;
+	output_format.nChannels = audio_options.channel_count > 0 ? (WORD)audio_options.channel_count : input->wave_format->nChannels;
 	output_format.nBlockAlign = output_format.nChannels * output_format.wBitsPerSample / 8;
 	output_format.nAvgBytesPerSec = output_format.nSamplesPerSec * output_format.nBlockAlign;
+	input->bytes_per_sec = output_format.nAvgBytesPerSec;
 	MFCreateMediaType(&input_type);
 	MFInitMediaTypeFromWaveFormatEx(input_type, &output_format, sizeof(output_format));
-	CHECK(input->resampler->SetOutputType(0, input_type, 0));
+	input->error = input->resampler->SetOutputType(0, input_type, 0);
+	if (FAILED(input->error)) {
+		MessageBox(main_window, L"Output format not supported by the resampler!", L"Audio error", MB_ICONERROR);
+		input_type->Release();
+		return;
+	}
 	IMFMediaType* output_type;
 	MFCreateMediaType(&output_type);
 	output_type->SetGUID(MF_MT_MAJOR_TYPE, MFMediaType_Audio);
@@ -813,8 +1057,16 @@ void add_audio_stream(Audio_Input* input) {
 	output_type->SetUINT32(MF_MT_AUDIO_AVG_BYTES_PER_SECOND, 24000);
 	output_type->SetUINT32(MF_MT_AUDIO_SAMPLES_PER_SECOND, output_format.nSamplesPerSec);
 	output_type->SetUINT32(MF_MT_AUDIO_NUM_CHANNELS, output_format.nChannels);
-	CHECK(sink_writer->AddStream(output_type, &input->stream_index));
-	CHECK(sink_writer->SetInputMediaType(input->stream_index, input_type, NULL));
+	input->error = sink_writer->AddStream(output_type, &input->stream_index);
+	if (FAILED(input->error)) {
+		MessageBox(main_window, L"Output format not supported by the encoder!", L"Audio error", MB_ICONERROR);
+		return;
+	}
+	input->error = sink_writer->SetInputMediaType(input->stream_index, input_type, NULL);
+	if (FAILED(input->error)) {
+		MessageBox(main_window, L"Input format not supported by the encoder!", L"Audio error", MB_ICONERROR);
+		return;
+	}
 	output_type->Release();
 	input_type->Release();
 }
@@ -827,6 +1079,7 @@ void stop_audio_stream(Audio_Input* input) {
 }
 
 void start_recording() {
+	//update_capture();
 	if (recording_running) {
 		return;
 	}
@@ -862,17 +1115,109 @@ void start_recording() {
 	input_type->SetGUID(MF_MT_SUBTYPE, MFVideoFormat_NV12);
 	input_type->SetUINT32(MF_MT_INTERLACE_MODE, MFVideoInterlace_Progressive);
 	input_type->SetUINT32(MF_MT_DEFAULT_STRIDE, aligned_width);
-	MFSetAttributeSize(input_type, MF_MT_FRAME_SIZE, source_width, source_height);
+	MFSetAttributeSize(input_type, MF_MT_FRAME_SIZE, capture_width, capture_height);
 	MFSetAttributeRatio(input_type, MF_MT_FRAME_RATE, capture_framerate, 1);
-	CHECK(sink_writer->AddStream(output_type, &video_stream_index));
-	CHECK(sink_writer->SetInputMediaType(video_stream_index, input_type, NULL));
+	if (capture_resize) {
+		if (video_options.resizer_method == RESIZER_RESIZER_DSP) {
+			CoCreateInstance(CLSID_CResizerDMO, NULL, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&resizer));
+		}
+		if (video_options.resizer_method == RESIZER_VIDEO_PROCESSOR_MFT) {
+			CoCreateInstance(CLSID_VideoProcessorMFT, NULL, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&resizer));
+		}
+		if (resizer == NULL) {
+		resizer_error:
+			MessageBox(main_window, L"Failed to initialize resizer!", L"Video error", MB_ICONERROR);
+		}
+	}
+	if (resizer != NULL) {
+		IMFMediaType* media_type;
+		MFCreateMediaType(&media_type);
+		media_type->SetGUID(MF_MT_MAJOR_TYPE, MFMediaType_Video);
+		media_type->SetGUID(MF_MT_SUBTYPE, MFVideoFormat_NV12);
+		media_type->SetUINT32(MF_MT_DEFAULT_STRIDE, aligned_width);
+		MFSetAttributeSize(media_type, MF_MT_FRAME_SIZE, aligned_width, aligned_height);
+		HRESULT input_error = resizer->SetInputType(0, media_type, 0);
+		media_type->SetUINT32(MF_MT_DEFAULT_STRIDE, capture_width);
+		MFSetAttributeSize(media_type, MF_MT_FRAME_SIZE, capture_width, capture_height);
+		HRESULT output_error = resizer->SetOutputType(0, media_type, 0);
+		media_type->Release();
+		if (FAILED(input_error) || FAILED(output_error)) {
+			resizer->Release();
+			resizer = NULL;
+			goto resizer_error;
+		}
+		int src_x = 0;
+		int src_y = 0;
+		int dst_x = 0;
+		int dst_y = 0;
+		int src_width = source_width;
+		int src_height = source_height;
+		int dst_width = capture_width;
+		int dst_height = capture_height;
+		if (video_options.resize_mode == RESIZE_MODE_LETTERBOX) {
+			dst_width = min(dst_width, dst_height * source_width / source_height);
+			dst_height = min(dst_height, dst_width * source_height / source_width);
+		}
+		if (video_options.resize_mode == RESIZE_MODE_CROP) {
+			src_width = min(src_width, src_height * capture_width / capture_height);
+			src_height = min(src_height, src_width * capture_height / capture_width);
+		}
+		src_x = (source_width - src_width) / 2;
+		src_y = (source_height - src_height) / 2;
+		dst_x = (capture_width - dst_width) / 2;
+		dst_y = (capture_height - dst_height) / 2;
+		if (video_options.resizer_method == RESIZER_RESIZER_DSP) {
+			IWMResizerProps* properties;
+			resizer->QueryInterface(IID_PPV_ARGS(&properties));
+			properties->SetFullCropRegion(src_x, src_y, src_width, src_height, dst_x, dst_y, dst_width, dst_height);
+			properties->SetResizerQuality(video_options.quality_resizer);
+			properties->Release();
+		}
+		if (video_options.resizer_method == RESIZER_VIDEO_PROCESSOR_MFT) {
+			RECT src_rect = { src_x, src_y, src_x + src_width, src_y + src_height };
+			RECT dst_rect = { dst_x, dst_y, dst_x + dst_width, dst_y + dst_height };
+			IMFVideoProcessorControl* control;
+			resizer->QueryInterface(IID_PPV_ARGS(&control));
+			control->SetSourceRectangle(&src_rect);
+			control->SetDestinationRectangle(&dst_rect);
+			control->Release();
+		}
+		if (video_options.gpu_resizer) {
+			UINT32 gpu_supported = 0;
+			IMFAttributes* attributes = NULL;
+			resizer->GetAttributes(&attributes);
+			if (attributes != NULL) {
+				attributes->GetUINT32(MF_SA_D3D_AWARE, &gpu_supported);
+				attributes->Release();
+			}
+			if (gpu_supported == 0) {
+				MessageBox(main_window, L"Resizer does not support hardware acceleration!", L"Video warning", MB_ICONWARNING);
+			}
+			else {
+				resizer->ProcessMessage(MFT_MESSAGE_SET_D3D_MANAGER, 1);
+			}
+		}
+		input_type->SetUINT32(MF_MT_DEFAULT_STRIDE, capture_width);
+	}
+	HRESULT input_error = sink_writer->AddStream(output_type, &video_stream_index);
+	HRESULT output_error = sink_writer->SetInputMediaType(video_stream_index, input_type, NULL);
 	output_type->Release();
 	input_type->Release();
-	if (audio_mode & 1) {
-		add_audio_stream(&system_audio);
+	if (FAILED(input_error) || FAILED(output_error)) {
+		MessageBox(main_window, L"Bad format!", L"Video error", MB_ICONERROR);
+		sink_writer->Release();
+		if (resizer != NULL) {
+			resizer->Release();
+			resizer = NULL;
+		}
+		recording_running = false;
+		return;
 	}
-	if (audio_mode & 2) {
-		add_audio_stream(&microphone_audio);
+	if (audio_sources & AUDIO_INPUT_SYSTEM) {
+		add_audio_stream(&system_input);
+	}
+	if (audio_sources & AUDIO_INPUT_MICROPHONE) {
+		add_audio_stream(&microphone_input);
 	}
 	if (settings.beep_at_start) {
 		Beep(5000, 200);
@@ -880,11 +1225,11 @@ void start_recording() {
 	sink_writer->BeginWriting();
 	recording_start_time = get_time();
 	encode_thread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)encode_proc, NULL, 0, NULL);
-	if (audio_mode & 1) {
-		system_audio.thread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)audio_proc, &system_audio, 0, NULL);
+	if (audio_sources & AUDIO_INPUT_SYSTEM) {
+		system_input.thread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)audio_proc, &system_input, 0, NULL);
 	}
-	if (audio_mode & 2) {
-		microphone_audio.thread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)audio_proc, &microphone_audio, 0, NULL);
+	if (audio_sources & AUDIO_INPUT_MICROPHONE) {
+		microphone_input.thread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)audio_proc, &microphone_input, 0, NULL);
 	}
 }
 
@@ -897,14 +1242,18 @@ void stop_recording() {
 	SetEvent(frame_event);
 	WaitForSingleObject(encode_thread, INFINITE);
 	CloseHandle(encode_thread);
-	if (audio_mode & 1) {
-		stop_audio_stream(&system_audio);
+	if (audio_sources & AUDIO_INPUT_SYSTEM) {
+		stop_audio_stream(&system_input);
 	}
-	if (audio_mode & 2) {
-		stop_audio_stream(&microphone_audio);
+	if (audio_sources & AUDIO_INPUT_MICROPHONE) {
+		stop_audio_stream(&microphone_input);
 	}
 	sink_writer->Finalize();
 	sink_writer->Release();
+	if (resizer != NULL) {
+		resizer->Release();
+		resizer = NULL;
+	}
 	if (settings.hide_at_start) {
 		ShowWindow(main_window, SW_SHOWNORMAL);
 	}
@@ -944,16 +1293,72 @@ void resume_recording() {
 	recording_paused = false;
 }
 
-HWND create_dialog(int width, const wchar_t* title, WNDPROC proc) {
+void update_source() {
+	if (settings.stop_on_close && !IsWindow(source_window) && recording_running) {
+		stop_recording();
+	}
+	if (video_source == VIDEO_SOURCE_WINDOW && IsWindow(source_window) && !IsIconic(source_window) && !recording_running) {
+		RECT new_rect;
+		GetWindowRect(source_window, &new_rect);
+		fit_window_rect(source_window, &new_rect);
+		if (memcmp(&source_rect, &new_rect, sizeof(RECT)) != 0) {
+			source_rect = new_rect;
+			if (capture_resize) {
+				update_capture();
+			}
+			else {
+				update_capture();
+			}
+			update_controls();
+		}
+		wchar_t source_title[128];
+		GetWindowText(video_source_edit, source_title, _countof(source_title));
+		wchar_t new_title[128];
+		GetWindowText(source_window, new_title, _countof(new_title));
+		if (wcslen(new_title) == 0) {
+			wcscpy(new_title, L"Unnamed Window");
+		}
+		if (wcscmp(source_title, new_title) != 0) {
+			SetWindowText(video_source_edit, new_title);
+		}
+	}
+}
+
+LRESULT CALLBACK dialog_proc(HWND window, UINT message, WPARAM wparam, LPARAM lparam) {
+	switch (message) {
+		case WM_ERASEBKGND: {
+			HDC context = (HDC)wparam;
+			RECT rect;
+			GetClientRect(window, &rect);
+			FillRect(context, &rect, white_brush);
+			return 1;
+		}
+		case WM_CTLCOLORSTATIC: {
+			return (INT_PTR)white_brush;
+		}
+		case WM_COMMAND: {
+			if (HIWORD(wparam) == CBN_SELENDOK || HIWORD(wparam) == CBN_SELENDCANCEL) {
+				SetFocus(window);
+			}
+			break;
+		}
+	}
+	return DefSubclassProc(window, message, wparam, lparam);
+}
+
+HWND create_dialog(int label_width, int control_width, const wchar_t* title, WNDPROC proc) {
+	int width = label_width + control_width;
 	RECT rect = { 0, 0, width, 10 };
-	LONG style = WS_POPUP | WS_CAPTION | WS_SYSMENU | WS_VISIBLE;
+	LONG style = WS_POPUP | WS_CAPTION | WS_SYSMENU;
 	AdjustWindowRect(&rect, style, FALSE);
 	int adjusted_width = get_rect_width(&rect);
 	int adjusted_height = get_rect_height(&rect);
-	POINT position = { main_rect.right, main_rect.bottom };
+	POINT position = { (main_rect.left + main_rect.right) / 2, (main_rect.top + main_rect.bottom) / 2 };
 	ClientToScreen(main_window, &position);
-	HWND window = CreateWindow(L"STATIC", title, style, (position.x - adjusted_width) / 2, (position.y - adjusted_height) / 2, adjusted_width, adjusted_height, main_window, NULL, NULL, NULL);
+	HWND window = CreateWindow(L"STATIC", title, style, 0, 0, adjusted_width, adjusted_height, main_window, NULL, NULL, NULL);
+	SetWindowLongPtr(window, GWLP_USERDATA, MAKELPARAM(label_width, control_width));
 	SetWindowLongPtr(window, GWLP_WNDPROC, (LONG_PTR)proc);
+	SetWindowSubclass(window, (SUBCLASSPROC)dialog_proc, 0, 0);
 	int height = (int)SendMessage(window, WM_USER, 0, 0);
 	height += 50;
 	SetRect(&rect, 0, 0, width, height);
@@ -962,30 +1367,33 @@ HWND create_dialog(int width, const wchar_t* title, WNDPROC proc) {
 	AdjustWindowRect(&rect, style, FALSE);
 	width = get_rect_width(&rect);
 	height = get_rect_height(&rect);
-	SetWindowPos(window, NULL, 0, 0, width, height, SWP_NOMOVE | SWP_NOZORDER);
-	SetRect(&rect, 0, 0, width, height);
-	HDC context = GetDC(window);
-	FillRect(context, &rect, white_brush);
-	ReleaseDC(window, context);
+	SetWindowPos(window, NULL, position.x - width / 2, position.y - height / 2, width, height, SWP_NOZORDER);
 	EnumChildWindows(window, set_font_proc, (LPARAM)main_font);
+	ShowWindow(window, SW_SHOWNORMAL);
+	RedrawWindow(window, NULL, NULL, RDW_INVALIDATE | RDW_ERASENOW | RDW_UPDATENOW);
 	return window;
 } 
 
-HWND add_form(HWND window, int* row, const wchar_t* type, const wchar_t* label, void* value) {
+HWND add_form(HWND window, int* row, const wchar_t* type, const wchar_t* label, void* value, ...) {
 	int margin = 10;
 	HWND control = NULL;
 	RECT rect;
 	GetClientRect(window, &rect);
+	if (*row == 0) {
+		*row = 5;
+	}
 	if (type == NULL) {
-		*row += 4;
+		*row += 6;
 		control = CreateWindow(L"STATIC", NULL, WS_VISIBLE | WS_CHILD | SS_ETCHEDHORZ, margin, *row, rect.right - margin * 2, 1, window, NULL, NULL, NULL);
-		*row += 5;
+		*row += 7;
 	}
 	else {
-		int height = 25;
+		int height = 27;
 		int spacing = 3;
-		int label_width = (rect.right - margin * 3) * 2 / 3;
-		int control_width = (rect.right - margin * 3) / 3;
+		int item_height = height - spacing * 2;
+		LPARAM widths = GetWindowLongPtr(window, GWLP_USERDATA);
+		int label_width = LOWORD(widths) - margin * 2;
+		int control_width = HIWORD(widths)- margin * 2;
 		CreateWindow(L"STATIC", label, WS_VISIBLE | WS_CHILD | SS_CENTERIMAGE, margin, *row, label_width, height, window, NULL, NULL, NULL);
 		const wchar_t* control_class = NULL;
 		LONG control_style = 0;
@@ -1000,7 +1408,25 @@ HWND add_form(HWND window, int* row, const wchar_t* type, const wchar_t* label, 
 			control_style =  WS_BORDER | ES_RIGHT;
 			control_proc = form_hotkey_proc;
 		}
-		control = CreateWindow(control_class, L"", WS_VISIBLE | WS_CHILD | control_style, rect.left + label_width + margin * 2, *row + spacing, control_width, height - spacing, window, NULL, NULL, NULL);
+		if (_wcsicmp(type, L"list") == 0) {
+			control_class = L"COMBOBOX";
+			control_style =  CBS_DROPDOWNLIST | CBS_HASSTRINGS;
+			control_proc = form_list_proc;
+			item_height = 500;
+		}
+		control = CreateWindow(control_class, L"", WS_VISIBLE | WS_CHILD | control_style, rect.left + label_width + margin * 3, *row + spacing, control_width, item_height, window, NULL, NULL, NULL);
+		if (_wcsicmp(type, L"list") == 0) {
+			va_list args;
+			va_start(args, value);
+			while (true) {
+				wchar_t* item = va_arg(args, wchar_t*);
+				if (item == NULL) {
+					break;
+				}
+				SendMessage(control, CB_ADDSTRING, 0, (LPARAM)item);
+			}
+			va_end(args);
+		}
 		SetWindowLongPtr(control, GWLP_USERDATA, (LONG_PTR)value);
 		SetWindowSubclass(control, (SUBCLASSPROC)control_proc, 0, 0);
 		SendMessage(control, WM_USER, 0, 0);
@@ -1012,7 +1438,7 @@ HWND add_form(HWND window, int* row, const wchar_t* type, const wchar_t* label, 
 
 void update_settings() {
 	SetWindowPos(main_window, settings.stay_on_top ? HWND_TOPMOST : HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
-	SetStretchBltMode(render_context, settings.better_preview ? HALFTONE : COLORONCOLOR);
+	SetStretchBltMode(render_context, settings.quality_preview ? HALFTONE : COLORONCOLOR);
 	save_data(L"Settings", &settings, sizeof(settings));
 }
 
@@ -1030,15 +1456,15 @@ void init_settings() {
 void init_config() {
 	load_data(L"framerate", &capture_framerate, sizeof(capture_framerate));
 	load_data(L"bitrate", &capture_bitrate, sizeof(capture_bitrate));
-	load_data(L"audiomode", &audio_mode, sizeof(audio_mode));
-	PostMessage(audio_source_list, CB_SETCURSEL, (WPARAM)audio_mode, 0);
+	load_data(L"audio_mode", &audio_sources, sizeof(audio_sources));
+	PostMessage(audio_source_list, CB_SETCURSEL, (WPARAM)audio_sources, 0);
 	PostMessage(main_window, WM_COMMAND, MAKEWPARAM(0, CBN_SELCHANGE), (LPARAM)audio_source_list);
 }
 
 void save_config() {
 	save_data(L"framerate", &capture_framerate, sizeof(capture_framerate));
 	save_data(L"bitrate", &capture_bitrate, sizeof(capture_bitrate));
-	save_data(L"audiomode", &audio_mode, sizeof(audio_mode));
+	save_data(L"audio_mode", &audio_sources, sizeof(audio_sources));
 }
 
 LRESULT CALLBACK settings_proc(HWND window, UINT message, WPARAM wparam, LPARAM lparam) {
@@ -1052,9 +1478,11 @@ LRESULT CALLBACK settings_proc(HWND window, UINT message, WPARAM wparam, LPARAM 
 			add_form(window, &row, L"checkbox", L"Minimize before starting recording", &settings.hide_at_start);
 			add_form(window, &row, L"checkbox", L"Hide from taskbar while recording", &settings.hide_from_taskbar);
 			add_form(window, &row, NULL, NULL, NULL);
+			add_form(window, &row, L"checkbox", L"Stop recording when the window closes", &settings.stop_on_close);
+			add_form(window, &row, NULL, NULL, NULL);
 			add_form(window, &row, L"checkbox", L"Ask to play recording when finished", &settings.ask_to_play);
 			add_form(window, &row, NULL, NULL, NULL);
-			add_form(window, &row, L"checkbox", L"High quality preview", &settings.better_preview);
+			add_form(window, &row, L"checkbox", L"High quality preview", &settings.quality_preview);
 			add_form(window, &row, L"checkbox", L"Disable preview while recording", &settings.disable_preview);
 			add_form(window, &row, NULL, NULL, NULL);
 			add_form(window, &row, L"checkbox", L"Beep before recording starts", &settings.beep_at_start);
@@ -1072,9 +1500,6 @@ LRESULT CALLBACK settings_proc(HWND window, UINT message, WPARAM wparam, LPARAM 
 			update_controls();
 			break;
 		}
-		case WM_CTLCOLORSTATIC: {
-			return (INT_PTR)white_brush;
-		}
 		case WM_COMMAND: {
 			if (LOWORD(wparam) == IDCANCEL) {
 				settings = backup;
@@ -1091,6 +1516,66 @@ LRESULT CALLBACK settings_proc(HWND window, UINT message, WPARAM wparam, LPARAM 
 	return DefWindowProc(window, message, wparam, lparam);
 }
 
+LRESULT CALLBACK video_options_proc(HWND window, UINT message, WPARAM wparam, LPARAM lparam) {
+	static Video_Options backup;
+	static Video_Options previous;
+	switch (message) {
+		case WM_USER: {
+			video_window = window;
+			backup = video_options;
+			previous = video_options;
+			int row = 0;
+			const wchar_t* capture_names[CAPTURE_COUNT];
+			capture_names[CAPTURE_DEFAULT] = L"Auto";
+			capture_names[CAPTURE_BITBLT_GETDIBITS] = L"BitBlt + GetDIBits";
+			capture_names[CAPTURE_BITBLT_GETBITMAPBITS] = L"BitBlt + GetBitmapBits";
+			capture_names[CAPTURE_CAPTUREBLT_GETDIBITS] = L"CaptureBlt + GetDIBits";
+			capture_names[CAPTURE_CAPTUREBLT_GETBITMAPBITS] = L"CaptureBlt + GetBitmapBits";
+			capture_names[CAPTURE_PRINTWINDOW_GETDIBITS] = L"PrintWindow + GetDIBits";
+			capture_names[CAPTURE_PRINTWINDOW_GETBITMAPBITS] = L"PrintWindow + GetBitmapBits";
+			capture_names[CAPTURE_GETDIBITS] = L"GetDIBits";
+			capture_names[CAPTURE_GETBITMAPBITS] = L"GetBitmapBits";
+			capture_names[CAPTURE_DIRECT3D_9_GETFRONTBUFFERDATA] = L"Direct3D 9 + GetFrontBufferData";
+			capture_names[CAPTURE_DIRECT3D_9_GETRENDERTARGETDATA] = L"Direct3D 9 + GetRenderTargetData";
+			capture_names[CAPTURE_DXGI_OUTPUT_DUPLICATION] = L"DXGI Output Duplication";
+			add_form(window, &row, L"list", L"Capture method", &video_options.capture_method, capture_names[0], capture_names[1], capture_names[2], capture_names[3], capture_names[4], capture_names[5], capture_names[6], capture_names[7], capture_names[8], capture_names[9], capture_names[10], capture_names[11], NULL);
+			add_form(window, &row, L"list", L"Source type", &video_options.source_type, L"Entire Window", L"Client Area", NULL);
+			add_form(window, &row, NULL, NULL, NULL);
+			add_form(window, &row, L"checkbox", L"Show mouse cursor", &video_options.draw_cursor);
+			add_form(window, &row, L"checkbox", L"Draw cursor when it is invisible", &video_options.always_cursor);
+			add_form(window, &row, NULL, NULL, NULL);
+			add_form(window, &row, L"list", L"Resize mode", &video_options.resize_mode, L"Stretch", L"Letterbox", L"Crop", NULL);
+			add_form(window, &row, L"list", L"Resizer method", &video_options.resizer_method, L"Video Resizer DSP", L"Video Processor MFT", NULL);
+			add_form(window, &row, L"checkbox", L"High quality resize", &video_options.quality_resizer);
+			add_form(window, &row, L"checkbox", L"Hardware accelerated resize", &video_options.gpu_resizer);
+			return row;
+		}
+		case WM_DESTROY: {
+			video_window = NULL;
+			update_controls();
+			break;
+		}
+		case WM_COMMAND: {
+			if (LOWORD(wparam) == IDCANCEL) {
+				video_options = backup;
+			}
+			if (LOWORD(wparam) != 0) {
+				DestroyWindow(window);
+			}
+			else {
+				SendMessage((HWND)lparam, WM_USER, 1, 0);
+			}
+			if (memcmp(&video_options, &previous, sizeof(Video_Options)) != 0) {
+				previous = video_options;
+				save_data(L"video_options", &video_options, sizeof(video_options));
+				update_capture();
+			}
+			break;
+		}
+	}
+	return DefWindowProc(window, message, wparam, lparam);
+}
+
 LRESULT CALLBACK audio_options_proc(HWND window, UINT message, WPARAM wparam, LPARAM lparam) {
 	static Audio_Options backup;
 	switch (message) {
@@ -1098,19 +1583,17 @@ LRESULT CALLBACK audio_options_proc(HWND window, UINT message, WPARAM wparam, LP
 			audio_window = window;
 			backup = audio_options;
 			int row = 0;
-			add_form(window, &row, L"checkbox", L"Force mono audio", &audio_options.force_mono);
+			add_form(window, &row, L"list", L"Number of channels", &audio_options.channel_count, L"Same as input", L"1 (mono)", L"2 (stereo)", NULL);
 			return row;
 		}
 		case WM_DESTROY: {
 			audio_window = NULL;
-			update_controls();
 			if (memcmp(&audio_options, &backup, sizeof(Audio_Options)) != 0) {
+				save_data(L"audio_options", &audio_options, sizeof(audio_options));
 				update_capture();
 			}
+			update_controls();
 			break;
-		}
-		case WM_CTLCOLORSTATIC: {
-			return (INT_PTR)white_brush;
 		}
 		case WM_COMMAND: {
 			if (LOWORD(wparam) == IDCANCEL) {
@@ -1118,6 +1601,9 @@ LRESULT CALLBACK audio_options_proc(HWND window, UINT message, WPARAM wparam, LP
 			}
 			if (LOWORD(wparam) != 0) {
 				DestroyWindow(window);
+			}
+			else {
+				SendMessage((HWND)lparam, WM_USER, 1, 0);
 			}
 			break;
 		}
@@ -1130,29 +1616,46 @@ void draw_preview() {
 	if (get_rect_width(&rect) < 10 || get_rect_height(&rect) < 10) {
 		return;
 	}
-	int width = get_rect_width(&rect);
-	int height = get_rect_height(&rect);
-	width = min(width, height * capture_width / capture_height);
-	height = min(height, width * capture_height / capture_width);
-	if (capture_stretch) {
-		width = min(capture_width, width);
-		height = min(capture_height, height);
+	int dst_width = get_rect_width(&rect);
+	int dst_height = get_rect_height(&rect);
+	dst_width = min(dst_width, dst_height * capture_width / capture_height);
+	dst_height = min(dst_height, dst_width * capture_height / capture_width);
+	if (capture_resize) {
+		dst_width = min(capture_width, dst_width);
+		dst_height = min(capture_height, dst_height);
 	}
-	int start_x = (rect.left + rect.right) / 2 - width / 2;
-	int start_y = (rect.top + rect.bottom) / 2 - (height + 1) / 2;
+	int middle_x = (rect.left + rect.right) / 2;
+	int middle_y = (rect.top + rect.bottom) / 2;
+	rect.left = middle_x - dst_width / 2;
+	rect.top = middle_y - (dst_height + 1) / 2;
+	rect.right = rect.left + dst_width;
+	rect.bottom = rect.top + dst_height;
 	if (recording_running && settings.disable_preview) {
-		rect.left = start_x;
-		rect.top = start_y;
-		rect.right = rect.left + width;
-		rect.bottom = rect.top + height;
 		FillRect(render_context, &rect, black_brush);
 		SetTextColor(render_context, RGB(255, 255, 255));
 		SelectObject(render_context, display_font);
 		DrawText(render_context, L"Preview Disabled", -1, &rect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
 	}
 	else {
+		int src_width = source_width;
+		int src_height = source_height;
+		if (capture_resize) {
+			if (video_options.resize_mode == RESIZE_MODE_LETTERBOX) {
+				FillRect(render_context, &rect, black_brush);
+				dst_width = min(dst_width, dst_height * source_width / source_height);
+				dst_height = min(dst_height, dst_width * source_height / source_width);
+			}
+			if (video_options.resize_mode == RESIZE_MODE_CROP) {
+				src_width = min(src_width, src_height * dst_width / dst_height);
+				src_height = min(src_height, src_width * dst_height / dst_width);
+			}
+		}
+		int src_x = middle_x - dst_width / 2;
+		int src_y = middle_y - (dst_height + 1) / 2;
+		int dst_x = (source_width - src_width) / 2;
+		int dst_y = (source_height - src_height) / 2;
 		AcquireSRWLockShared(&capture_lock);
-		StretchDIBits(render_context, start_x, start_y, width, height, 0, 0, source_width, source_height, capture_buffer, (const BITMAPINFO*)&capture_info, DIB_RGB_COLORS, SRCCOPY);
+		StretchDIBits(render_context, src_x, src_y, dst_width, dst_height, dst_x, dst_y, src_width, src_height, capture_buffer, (const BITMAPINFO*)&capture_info, DIB_RGB_COLORS, SRCCOPY);
 		ReleaseSRWLockShared(&capture_lock);
 	}
 }
@@ -1211,10 +1714,12 @@ LRESULT CALLBACK window_proc(HWND window, UINT message, WPARAM wparam, LPARAM lp
 			render_bitmap = CreateCompatibleBitmap(main_context, GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN));
 			SelectObject(render_context, render_bitmap);
 			SetBkMode(render_context, TRANSPARENT);
+			load_data(L"video_options", &video_options, sizeof(video_options));
+			load_data(L"audio_options", &audio_options, sizeof(audio_options));
 			load_images();
 			create_controls();
 			place_controls();
-			update_source();
+			select_source();
 			update_audio();
 			update_controls();
 			SetWindowsHookEx(WH_KEYBOARD_LL, keyboard_hook_proc, main_instance, 0);
@@ -1239,26 +1744,7 @@ LRESULT CALLBACK window_proc(HWND window, UINT message, WPARAM wparam, LPARAM lp
 			return 0;
 		}
 		case WM_PAINT: {
-			if (source_mode == 2 && IsWindow(source_window) && !IsIconic(source_window) && !capture_stretch && !recording_running) {
-				RECT new_rect;
-				GetWindowRect(source_window, &new_rect);
-				fit_window_rect(source_window, &new_rect);
-				if (memcmp(&source_rect, &new_rect, sizeof(RECT)) != 0) {
-					source_rect = new_rect;
-					reset_capture();
-					update_controls();
-				}
-				wchar_t source_title[128];
-				GetWindowText(video_source_edit, source_title, _countof(source_title));
-				wchar_t new_title[128];
-				GetWindowText(source_window, new_title, _countof(new_title));
-				if (wcslen(new_title) == 0) {
-					wcscpy(new_title, L"Unnamed Window");
-				}
-				if (wcscmp(source_title, new_title) != 0) {
-					SetWindowText(video_source_edit, new_title);
-				}
-			}
+			update_source();
 			EnumChildWindows(main_window, custom_draw_proc, NULL);
 			SelectObject(render_context, outline_pen);
 			SelectObject(render_context, background_brush);
@@ -1391,16 +1877,24 @@ LRESULT CALLBACK window_proc(HWND window, UINT message, WPARAM wparam, LPARAM lp
 			switch (HIWORD(wparam)) {
 				case CBN_SELCHANGE: {
 					if (child == video_source_list) {
-						update_source();
+						select_source();
 					}
 					if (child == audio_source_list) {
 						update_audio();
 					}
 					break;
 				}
+				case CBN_SELENDOK: {
+					SetFocus(window);
+					break;
+				}
+				case CBN_SELENDCANCEL: {
+					SetFocus(window);
+					break;
+				}
 				case BN_CLICKED: {
-					if (child == stretch_checkbox) {
-						reset_capture();
+					if (child == resize_checkbox) {
+						update_capture();
 					}
 					if (child == start_button) {
 						start_recording();
@@ -1417,10 +1911,13 @@ LRESULT CALLBACK window_proc(HWND window, UINT message, WPARAM wparam, LPARAM lp
 						}
 					}
 					if (child == settings_button) {
-						create_dialog(360, L"Settings", settings_proc);
+						create_dialog(240, 120, L"Settings", settings_proc);
+					}
+					if (child == video_button) {
+						create_dialog(200, 200, L"Video Options", video_options_proc);
 					}
 					if (child == audio_button) {
-						create_dialog(360, L"Audio Options", audio_options_proc);
+						create_dialog(150, 150, L"Audio Options", audio_options_proc);
 					}
 					break;
 				}
@@ -1437,18 +1934,16 @@ LRESULT CALLBACK window_proc(HWND window, UINT message, WPARAM wparam, LPARAM lp
 						capture_framerate = max(1, _wtoi(buffer));
 					}
 					if (child == bitrate_edit) {
-						capture_bitrate =max(1,  _wtoi(buffer));
+						capture_bitrate = max(1,  _wtoi(buffer));
 					}
 					if (SendMessage(keep_ratio_checkbox, BM_GETCHECK, 0, 0) != BST_UNCHECKED) {
 						if (child == width_edit) {
-							capture_height = capture_width * source_height / source_width;
+							capture_height = max(1, capture_width * source_height / source_width);
 						}
 						if (child == height_edit) {
-							capture_width = capture_height * source_width / source_height;
+							capture_width = max(1, capture_height * source_width / source_height);
 						}
 					}
-					capture_width = next_multiple(2, capture_width);
-					capture_height = next_multiple(2, capture_height);
 					if (child == width_edit || child == height_edit || child == framerate_edit) {
 						update_capture();
 					}
@@ -1462,7 +1957,7 @@ LRESULT CALLBACK window_proc(HWND window, UINT message, WPARAM wparam, LPARAM lp
 	return DefWindowProc(window, message, wparam, lparam);
 }
 
-int main() {
+int real_main() {
 	main_font = CreateFont(16, 0, 0, 0, FW_REGULAR, FALSE, FALSE, FALSE, 0, 0, 0, 0, 0, L"Segoe UI");
 	fps_font = CreateFont(60, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, 0, 0, 0, 0, 0, L"Consolas");
 	display_font = CreateFont(25, 0, 0, 0, FW_REGULAR, FALSE, FALSE, FALSE, 0, 0, 0, 0, 0, L"Verdana");
@@ -1470,11 +1965,12 @@ int main() {
 	black_brush = CreateSolidBrush(RGB(0, 0, 0));
 	background_brush = CreateSolidBrush(RGB(220, 220, 220));
 	outline_pen = CreatePen(PS_SOLID, 2, RGB(0, 0, 0));
+	InitializeSRWLock(&capture_lock);
 	capture_framerate = 60;
 	capture_bitrate = 16000;
 	meas_interval = 0.5;
 	capture_size_max = 100000000;
-	InitializeSRWLock(&capture_lock);
+	resample_audio = true;
 	int timer_resolution = 1;
 	timeBeginPeriod(timer_resolution);
 	CoInitialize(NULL);
@@ -1498,3 +1994,115 @@ int main() {
 	timeEndPeriod(timer_resolution);
 	return 0;
 }
+
+int main() {
+	real_main();
+	return 0;
+}
+
+////////////////////////////////////////////// SCRAP ///////////////////////////////////////////////
+
+/*
+fix resizer color
+implement own resizer
+test I420 vs NV12 simd speed
+exclusive fullscreen
+*/ 
+
+#include <d3d9.h>
+#include <iostream>
+
+/*
+
+IDirect3DSurface9* render_target = NULL;
+CHECK(m_device->GetBackBuffer(0, 0, D3DBACKBUFFER_TYPE_MONO, &render_target));
+CHECK(m_device->GetRenderTargetData(render_target, m_surface));
+render_target->Release();
+
+*/
+
+// Replace with your target window's HWND
+HWND hwnd = FindWindow(NULL, L"input.mp4 - VLC media player");
+
+HRESULT CaptureWindowFrontBuffer(HWND hwnd) {
+	HRESULT result = S_OK;
+	IDirect3D9* d3d = Direct3DCreate9(D3D_SDK_VERSION);
+	if (d3d == NULL) {
+		std::cerr << "Failed to create Direct3D object." << std::endl;
+		return E_FAIL;
+	}
+
+	// Get display mode of the adapter
+	D3DDISPLAYMODE display_mode;
+	result = d3d->GetAdapterDisplayMode(D3DADAPTER_DEFAULT, &display_mode);
+	if (FAILED(result)) {
+		d3d->Release();
+		return result;
+	}
+
+	// Set up the device
+	D3DPRESENT_PARAMETERS d3dpp = {};
+	d3dpp.Windowed = TRUE;
+	d3dpp.SwapEffect = D3DSWAPEFFECT_DISCARD;
+	d3dpp.BackBufferFormat = display_mode.Format;
+	d3dpp.BackBufferWidth = display_mode.Width; // Can be set to the window's size
+	d3dpp.BackBufferHeight = display_mode.Height; // Can be set to the window's size
+	d3dpp.hDeviceWindow = hwnd;
+
+	IDirect3DDevice9* device = nullptr;
+	result = d3d->CreateDevice(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, hwnd,
+		D3DCREATE_SOFTWARE_VERTEXPROCESSING, &d3dpp, &device);
+	if (FAILED(result)) {
+		d3d->Release();
+		return result;
+	}
+
+	// Create an off-screen surface for capturing the front buffer
+	IDirect3DSurface9* offscreenSurface = nullptr;
+	result = device->CreateOffscreenPlainSurface(d3dpp.BackBufferWidth, d3dpp.BackBufferHeight,
+		D3DFMT_A8R8G8B8, D3DPOOL_SYSTEMMEM, &offscreenSurface, nullptr);
+	if (FAILED(result)) {
+		device->Release();
+		d3d->Release();
+		return result;
+	}
+
+	// Get the front buffer data
+	result = device->GetFrontBufferData(0, offscreenSurface);
+	if (FAILED(result)) {
+		std::cerr << "Failed to capture front buffer data. Error code: 0x" << std::hex << result << std::endl;
+		offscreenSurface->Release();
+		device->Release();
+		d3d->Release();
+		return result;
+	}
+
+	// Lock the surface to access the pixel data
+	D3DLOCKED_RECT lockedRect;
+	result = offscreenSurface->LockRect(&lockedRect, nullptr, D3DLOCK_READONLY);
+	if (SUCCEEDED(result)) {
+		// Here you can access the pixel data in lockedRect.pBits
+		// For example, you could copy it to a buffer or save it as an image
+		offscreenSurface->UnlockRect();
+	} else {
+		std::cerr << "Failed to lock the surface. Error code: 0x" << std::hex << result << std::endl;
+	}
+
+	// Clean up
+	offscreenSurface->Release();
+	device->Release();
+	d3d->Release();
+
+	return result;
+}
+
+int main1() {
+	HRESULT hr = CaptureWindowFrontBuffer(hwnd);
+	if (FAILED(hr)) {
+		std::cerr << "Capture failed. HRESULT: " << std::hex << hr << std::endl;
+	} else {
+		std::cout << "Capture successful." << std::endl;
+	}
+	return 0;
+}
+
