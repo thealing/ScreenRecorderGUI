@@ -1,7 +1,0 @@
-#include "resource.h"
-
-ID_START BITMAP "start.bmp"
-ID_STOP BITMAP "stop.bmp"
-ID_PAUSE BITMAP "pause.bmp"
-ID_RESUME BITMAP "resume.bmp"
-ID_SETTINGS BITMAP "settings.bmp"
