@@ -231,6 +231,9 @@ HANDLE connect(RECT rect) {
 void opengl_proc(OpenGL_Data* data) {
 	WaitForSingleObject(data->init_event, INFINITE);
 	RECT rect = { 0, 0, data->viewport[2], data->viewport[3] };
+	DWORD row_size = rect.right * 4;
+	DWORD size = row_size * rect.bottom;
+	uint8_t* flipped_pixels = (uint8_t*)malloc(size);
 	HANDLE pipe = NULL;
 	while (true) {
 		while (pipe == NULL) {
@@ -239,9 +242,12 @@ void opengl_proc(OpenGL_Data* data) {
 		}
 		data->ready = true;
 		WaitForSingleObject(data->frame_event, INFINITE);
-		DWORD bytes_to_write = rect.right * rect.bottom * 4;
+		for (int i = 0; i < rect.bottom; i++) {
+			memcpy(flipped_pixels + (rect.bottom - 1 - i) * row_size, (uint8_t*)data->pixels + i * row_size, row_size);
+		}
+		DWORD bytes_to_write = size;
 		DWORD bytes_written;
-		if (!WriteFile(pipe, data->pixels, bytes_to_write, &bytes_written, NULL) || bytes_written != bytes_to_write) {
+		if (!WriteFile(pipe, flipped_pixels, bytes_to_write, &bytes_written, NULL) || bytes_written != bytes_to_write) {
 			CloseHandle(pipe);
 			pipe = NULL;
 		}
