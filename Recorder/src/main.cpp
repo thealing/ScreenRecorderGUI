@@ -51,6 +51,11 @@ enum {
 	COLOR_RGB,
 };
 
+enum {
+	FORMAT_IYUV,
+	FORMAT_NV12,
+};
+
 struct Hotkey {
 	wchar_t key;
 	bool control;
@@ -73,6 +78,7 @@ struct Settings {
 	bool disable_preview;
 	bool stop_on_close;
 	Hotkey refresh_hotkey;
+	int format;
 };
 
 struct Video_Options {
@@ -86,6 +92,7 @@ struct Video_Options {
 	bool always_cursor;
 	bool use_hook;
 	int color;
+	int format;
 };
 
 struct Audio_Options {
@@ -602,9 +609,9 @@ void draw_cursor() {
 	}
 	for (int i = 0; i < height; i++) {
 		for (int j = 0; j < width; j++) {
-			uint32_t pixel = *((uint32_t*)pixels + i * width + j);
-			uint32_t mask = *((uint32_t*)masks + i * width + j);
-			if (pixel == 0) {
+			uint8_t* pixel = (uint8_t*)((uint32_t*)pixels + i * width + j);
+			uint8_t* mask = (uint8_t*)((uint32_t*)masks + i * width + j);
+			if (*(uint32_t*)pixel == 0) {
 				continue;
 			}
 			int y = cursor_info.ptScreenPos.y - icon_info.yHotspot + i;
@@ -612,12 +619,16 @@ void draw_cursor() {
 			if (x < 0 || x >= source_width || y < 0 || y >= source_height) {
 				continue;
 			}
-			uint32_t* dest = (uint32_t*)capture_buffer + y * aligned_width + x;
+			uint8_t* dest = (uint8_t*)((uint32_t*)capture_buffer + y * aligned_width + x);
 			if (icon_info.hbmColor) {
-				*dest = pixel;
+				for (int i = 0; i < 4; i++) {
+					dest[i] = (dest[i] * (255 - pixel[3]) + pixel[i] * pixel[3]) / 255;
+				}
 			}
 			else {
-				*dest ^= mask;
+				for (int i = 0; i < 4; i++) {
+					dest[i] ^= mask[i];
+				}
 			}
 		}
 	}
@@ -927,17 +938,32 @@ void encode_proc() {
 		}
 		double frame_start_time = get_time();
 		IMFMediaBuffer* buffer;
-		int encode_size = aligned_width * aligned_height * 3 / 2;
+		int pixel_count = aligned_width * aligned_height;
+		int encode_size = pixel_count * 3 / 2;
 		MFCreateAlignedMemoryBuffer(encode_size, MF_16_BYTE_ALIGNMENT, &buffer);
 		buffer->SetCurrentLength(encode_size);
 		BYTE* data;
 		buffer->Lock(&data, NULL, NULL);
 		AcquireSRWLockShared(&capture_lock);
-		if (video_options.color == COLOR_BGR) {
-			convert_bgr32_to_nv12((uint32_t*)capture_buffer, data, data + aligned_width * aligned_height, aligned_width, aligned_height);
-		}
-		if (video_options.color == COLOR_RGB) {
-			convert_rgb32_to_nv12((uint32_t*)capture_buffer, data, data + aligned_width * aligned_height, aligned_width, aligned_height);
+		switch (video_options.format) {
+			case FORMAT_IYUV: {
+				if (video_options.color == COLOR_BGR) {
+					convert_bgr32_to_iyuv((uint32_t*)capture_buffer, data, data + pixel_count, data + pixel_count * 5 / 4, aligned_width, aligned_height);
+				}
+				if (video_options.color == COLOR_RGB) {
+					convert_rgb32_to_iyuv((uint32_t*)capture_buffer, data, data + pixel_count, data + pixel_count * 5 / 4, aligned_width, aligned_height);
+				}
+				break;
+			}
+			case FORMAT_NV12: {
+				if (video_options.color == COLOR_BGR) {
+					convert_bgr32_to_nv12((uint32_t*)capture_buffer, data, data + pixel_count, aligned_width, aligned_height);
+				}
+				if (video_options.color == COLOR_RGB) {
+					convert_rgb32_to_nv12((uint32_t*)capture_buffer, data, data + pixel_count, aligned_width, aligned_height);
+				}
+				break;
+			}
 		}
 		ReleaseSRWLockShared(&capture_lock);
 		buffer->Unlock();
@@ -1239,10 +1265,21 @@ void start_recording() {
 	MFSetAttributeSize(output_type, MF_MT_FRAME_SIZE, capture_width, capture_height);
 	MFSetAttributeRatio(output_type, MF_MT_FRAME_RATE, capture_framerate, 1);
 	MFCreateSinkWriterFromURL(output_path, NULL, NULL, &sink_writer);
+	GUID format_guid = MFVideoFormat_Base;
+	switch (video_options.format) {
+		case FORMAT_IYUV: {
+			format_guid = MFVideoFormat_IYUV;
+			break;
+		}
+		case FORMAT_NV12: {
+			format_guid = MFVideoFormat_NV12;
+			break;
+		}
+	}
 	IMFMediaType* input_type;
 	MFCreateMediaType(&input_type);
 	input_type->SetGUID(MF_MT_MAJOR_TYPE, MFMediaType_Video);
-	input_type->SetGUID(MF_MT_SUBTYPE, MFVideoFormat_NV12);
+	input_type->SetGUID(MF_MT_SUBTYPE, format_guid);
 	input_type->SetUINT32(MF_MT_INTERLACE_MODE, MFVideoInterlace_Progressive);
 	input_type->SetUINT32(MF_MT_DEFAULT_STRIDE, aligned_width);
 	MFSetAttributeSize(input_type, MF_MT_FRAME_SIZE, capture_width, capture_height);
@@ -1263,7 +1300,7 @@ void start_recording() {
 		IMFMediaType* media_type;
 		MFCreateMediaType(&media_type);
 		media_type->SetGUID(MF_MT_MAJOR_TYPE, MFMediaType_Video);
-		media_type->SetGUID(MF_MT_SUBTYPE, MFVideoFormat_NV12);
+		media_type->SetGUID(MF_MT_SUBTYPE, format_guid);
 		media_type->SetUINT32(MF_MT_DEFAULT_STRIDE, aligned_width);
 		MFSetAttributeSize(media_type, MF_MT_FRAME_SIZE, aligned_width, aligned_height);
 		HRESULT input_error = resizer->SetInputType(0, media_type, 0);
@@ -1698,6 +1735,7 @@ LRESULT CALLBACK video_options_proc(HWND window, UINT message, WPARAM wparam, LP
 			add_form(window, &row, L"checkbox", L"Hardware accelerated resize", &video_options.gpu_resizer);
 			add_form(window, &row, NULL, NULL, NULL);
 			add_form(window, &row, L"list", L"Color format", &video_options.color, L"Default - BRG", L"Inverted - RGB", NULL);
+			add_form(window, &row, L"list", L"Encode format", &video_options.format, L"IYUV", L"NV12", NULL);
 			return row;
 		}
 		case WM_DESTROY: {
@@ -2190,13 +2228,8 @@ int main() {
 	return 0;
 }
 
-////////////////////////////////////////////// SCRAP ///////////////////////////////////////////////
 /*
 
-fix resizer color
-own resizer
-simd I420 vs NV12 speed
-alphablend cursor
 D3DKMTOutputDupl, D3DKMTCreateDCFromMemory (replace window's dc, bypass GetDIBits, get subrect quickly...)
 dwmapi captures (win10): DwmpBeginDisplayCapture, DwmpBeginWindowCapture, ...
 
