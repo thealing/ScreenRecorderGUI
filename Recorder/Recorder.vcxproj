@@ -238,6 +238,7 @@
     <ClInclude Include="src\capture.h" />
     <ClInclude Include="res\resource.h" />
     <ClInclude Include="src\convert.h" />
+    <ClInclude Include="src\log.h" />
     <ClInclude Include="src\main.h" />
     <ClInclude Include="src\platform.h" />
     <ClInclude Include="src\util.h" />

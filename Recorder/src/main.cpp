@@ -79,6 +79,7 @@ struct Settings {
 	bool stop_on_close;
 	Hotkey refresh_hotkey;
 	int format;
+	int logging;
 };
 
 struct Video_Options {
@@ -1574,7 +1575,7 @@ HWND add_form(HWND window, int* row, const wchar_t* type, const wchar_t* label, 
 		int item_height = height - spacing * 2;
 		LPARAM widths = GetWindowLongPtr(window, GWLP_USERDATA);
 		int label_width = LOWORD(widths) - margin * 2;
-		int control_width = HIWORD(widths)- margin * 2;
+		int control_width = HIWORD(widths) - margin * 2;
 		CreateWindow(L"STATIC", label, WS_VISIBLE | WS_CHILD | SS_CENTERIMAGE, margin, *row, label_width, height, window, NULL, NULL, NULL);
 		const wchar_t* control_class = NULL;
 		LONG control_style = 0;
@@ -1588,6 +1589,7 @@ HWND add_form(HWND window, int* row, const wchar_t* type, const wchar_t* label, 
 			control_class = L"EDIT";
 			control_style =  WS_BORDER | ES_RIGHT;
 			control_proc = form_hotkey_proc;
+			control_width = 120;
 		}
 		if (_wcsicmp(type, L"list") == 0) {
 			control_class = L"COMBOBOX";
@@ -1595,7 +1597,7 @@ HWND add_form(HWND window, int* row, const wchar_t* type, const wchar_t* label, 
 			control_proc = form_list_proc;
 			item_height = 500;
 		}
-		control = CreateWindow(control_class, L"", WS_VISIBLE | WS_CHILD | control_style, rect.left + label_width + margin * 3, *row + spacing, control_width, item_height, window, NULL, NULL, NULL);
+		control = CreateWindow(control_class, L"", WS_VISIBLE | WS_CHILD | control_style, rect.right - margin - control_width, *row + spacing, control_width, item_height, window, NULL, NULL, NULL);
 		if (_wcsicmp(type, L"list") == 0) {
 			va_list args;
 			va_start(args, value);
@@ -1624,12 +1626,6 @@ void update_settings() {
 }
 
 void init_settings() {
-	settings.stay_on_top = false;
-	settings.hide_at_start = true;
-	settings.hide_from_taskbar = false;
-	settings.beep_at_start = false;
-	settings.beep_at_stop = false;
-	settings.ask_to_play = true;
 	load_data(L"Settings", &settings, sizeof(settings));
 	update_settings();
 }
@@ -1674,6 +1670,8 @@ LRESULT CALLBACK settings_proc(HWND window, UINT message, WPARAM wparam, LPARAM 
 			add_form(window, &row, L"hotkey", L"Pause recording", &settings.pause_hotkey);
 			add_form(window, &row, L"hotkey", L"Resume recording", &settings.resume_hotkey);
 			add_form(window, &row, L"hotkey", L"Refresh", &settings.refresh_hotkey);
+			add_form(window, &row, NULL, NULL, NULL);
+			add_form(window, &row, L"list", L"Enable logging", &settings.logging, L"No logging", L"Single file", L"Time-stamped files", NULL);
 			return row;
 		}
 		case WM_DESTROY: {
@@ -2128,7 +2126,7 @@ LRESULT CALLBACK window_proc(HWND window, UINT message, WPARAM wparam, LPARAM lp
 						}
 					}
 					if (child == settings_button) {
-						create_dialog(240, 120, L"Settings", settings_proc);
+						create_dialog(240, 160, L"Settings", settings_proc);
 					}
 					if (child == video_button) {
 						if (video_window == NULL) {
@@ -2211,6 +2209,8 @@ int real_main() {
 	CreateWindow(wc.lpszClassName, L"Scabinic", WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN | WS_VISIBLE, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, NULL, NULL, NULL, NULL);
 	init_settings();
 	init_config();
+	logging_mode = settings.logging;
+	log_info(L"Started.");
 	SetTimer(main_window, 1, 100, NULL);
 	MSG msg;
 	while (GetMessage(&msg, NULL, 0, 0) > 0) {

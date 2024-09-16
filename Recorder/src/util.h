@@ -1,6 +1,6 @@
 #pragma once
 
-#include "platform.h"
+#include "log.h"
 
 #define CHECK(x) check(x, #x)
 
