@@ -95,9 +95,9 @@ struct Video_Options {
 	int capture_method;
 	int source_type;
 	int resize_mode;
-	int resizer_method;
+	int unused_1;
 	bool quality_resizer;
-	bool gpu_resizer;
+	bool unused_2;
 	bool draw_cursor;
 	bool always_cursor;
 	bool use_hook;
@@ -205,7 +205,6 @@ HWND video_window;
 HWND width_edit;
 HWND width_label;
 IMFSinkWriter* sink_writer;
-IMFTransform* resizer;
 int aligned_height;
 int aligned_width;
 int audio_sources;
@@ -215,15 +214,20 @@ int capture_height;
 int capture_width;
 int source_height;
 int source_width;
+int source_stride;
 int video_source;
 int64_t recording_size;
 int64_t recording_time;
 RECT main_rect;
 RECT source_rect;
+RECT resize_src_rect;
+RECT resize_dst_rect;
+uint32_t** resize_table;
 Settings settings;
 size_t capture_size_max;
 SRWLOCK capture_lock;
 Video_Options video_options;
+void* source_buffer;
 void* capture_buffer;
 wchar_t output_path[MAX_PATH];
 
@@ -562,16 +566,18 @@ BOOL CALLBACK custom_draw_proc(HWND child, LPARAM) {
 void update_dimensions() {
 	source_width = next_multiple(2, max(1, get_rect_width(&source_rect)));
 	source_height = next_multiple(2, max(1, get_rect_height(&source_rect)));
-	aligned_width = next_multiple(32, source_width);
-	aligned_height = next_multiple(2, source_height);
 	if (capture_resize) {
 		capture_width = next_multiple(2, capture_width);
 		capture_height = next_multiple(2, capture_height);
+		source_stride = source_width;
 	}
 	else {
 		capture_width = next_multiple(2, source_width);
 		capture_height = next_multiple(2, source_height);
+		source_stride = next_multiple(32, source_width);
 	}
+	aligned_width = next_multiple(32, capture_width);
+	aligned_height = next_multiple(2, capture_height);
 	log_info(L"Updated dimensions: %i %i, %i %i, %i %i", source_width, source_height, aligned_width, aligned_height, capture_width, capture_height);
 }
 
@@ -636,7 +642,7 @@ void draw_cursor() {
 			if (x < 0 || x >= source_width || y < 0 || y >= source_height) {
 				continue;
 			}
-			uint8_t* dest = (uint8_t*)((uint32_t*)capture_buffer + y * aligned_width + x);
+			uint8_t* dest = (uint8_t*)((uint32_t*)source_buffer + y * source_stride + x);
 			if (icon_info.hbmColor) {
 				for (int k = 0; k < 4; k++) {
 					dest[k] = (dest[k] * (255 - pixel[3]) + pixel[k] * pixel[3]) / 255;
@@ -666,9 +672,16 @@ void capture_proc() {
 		due_time.QuadPart = due_time.QuadPart + 10000000 / capture_framerate;
 		SetWaitableTimer(timer, &due_time, 0, NULL, NULL, FALSE);
 		double current_time = get_time();
-		bool captured = current_capture->get(capture_buffer, &capture_lock);
+		bool captured = current_capture->get(source_buffer, &capture_lock);
 		if (captured) {
 			draw_cursor();
+		}
+		if (captured && capture_resize) {
+			for (int i = resize_dst_rect.top; i < resize_dst_rect.bottom; i++) {
+				for (int j = resize_dst_rect.left, k = aligned_width * i + j; j < resize_dst_rect.right; j++, k++) {
+					*((uint32_t*)capture_buffer + k) = *resize_table[k];
+				}
+			}
 		}
 		SetEvent(frame_event);
 		if (captured) {
@@ -686,7 +699,7 @@ void capture_proc() {
 			IWICImagingFactory* factory;
 			CoCreateInstance(CLSID_WICImagingFactory, nullptr, CLSCTX_INPROC_SERVER, IID_IWICImagingFactory, (void**)&factory);
 			IWICBitmap* bitmap;
-			factory->CreateBitmapFromMemory(capture_width, capture_height, video_options.color == COLOR_BGR ? GUID_WICPixelFormat32bppBGRA : video_options.color == COLOR_RGB ? GUID_WICPixelFormat32bppRGBA : GUID_NULL, capture_width * 4, capture_info.biSizeImage, (BYTE*)capture_buffer, &bitmap);
+			factory->CreateBitmapFromMemory(capture_width, capture_height, video_options.color == COLOR_BGR ? GUID_WICPixelFormat32bppBGRA : video_options.color == COLOR_RGB ? GUID_WICPixelFormat32bppRGBA : GUID_NULL, aligned_width * 4, capture_info.biSizeImage, (BYTE*)capture_buffer, &bitmap);
 			IWICStream* stream;
 			factory->CreateStream(&stream);
 			wchar_t snapshot_path[MAX_PATH];
@@ -778,7 +791,7 @@ void start_capture() {
 	source.rect = source_rect;
 	source.width = source_width;
 	source.height = source_height;
-	source.stride = aligned_width;
+	source.stride = source_stride;
 	if (FAILED(current_capture->start(source))) {
 		current_capture->stop();
 		capture_running = false;
@@ -786,6 +799,48 @@ void start_capture() {
 		goto end;
 	}
 	capture_buffer = _aligned_malloc(capture_info.biSizeImage, 16);
+	source_buffer = capture_buffer;
+	if (capture_resize) {
+		memset(capture_buffer, 0, capture_info.biSizeImage);
+		source_buffer = malloc(source_stride * source_height * 4);
+		int src_x = 0;
+		int src_y = 0;
+		int dst_x = 0;
+		int dst_y = 0;
+		int src_width = source_width;
+		int src_height = source_height;
+		int dst_width = capture_width;
+		int dst_height = capture_height;
+		if (video_options.resize_mode == RESIZE_MODE_LETTERBOX) {
+			dst_width = min(dst_width, dst_height * source_width / source_height);
+			dst_height = min(dst_height, dst_width * source_height / source_width);
+		}
+		if (video_options.resize_mode == RESIZE_MODE_CROP) {
+			src_width = min(src_width, src_height * capture_width / capture_height);
+			src_height = min(src_height, src_width * capture_height / capture_width);
+		}
+		src_x = (source_width - src_width) / 2;
+		src_y = (source_height - src_height) / 2;
+		dst_x = (capture_width - dst_width) / 2;
+		dst_y = (capture_height - dst_height) / 2;
+		src_x -= src_x % 2;
+		src_y -= src_y % 2;
+		dst_x -= dst_x % 2;
+		dst_y -= dst_y % 2;
+		SetRect(&resize_src_rect, src_x, src_y, src_x + src_width, src_y + src_height);
+		SetRect(&resize_dst_rect, dst_x, dst_y, dst_x + dst_width, dst_y + dst_height);
+		if (resize_table != NULL) {
+			free(resize_table);
+		}
+		resize_table = (uint32_t**)malloc(aligned_width * aligned_height * sizeof(uint32_t*));
+		for (dst_y = 0; dst_y < dst_height; dst_y++) {
+			src_y = dst_y * src_height / dst_height;
+			for (dst_x = 0; dst_x < dst_width; dst_x++) {
+				src_x = dst_x * src_width / dst_width;
+				resize_table[aligned_width * (resize_dst_rect.top + dst_y) + (resize_dst_rect.left + dst_x)] = (uint32_t*)source_buffer + source_stride * (resize_src_rect.top + src_y) + (resize_src_rect.left + src_x);
+			}
+		}
+	}
 	frame_event = CreateEvent(NULL, FALSE, FALSE, NULL);
 	stop_event = CreateEvent(NULL, FALSE, FALSE, NULL);
 	capture_thread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)capture_proc, NULL, 0, NULL);
@@ -816,6 +871,9 @@ void stop_capture() {
 	CloseHandle(stop_event);
 	current_capture->stop();
 	_aligned_free(capture_buffer);
+	if (source_buffer != capture_buffer) {
+		free(source_buffer);
+	}
 end:
 	dirty_capture = false;
 	log_info(L"Stopped capture");
@@ -1060,22 +1118,6 @@ void encode_proc() {
 		sample->AddBuffer(buffer);
 		sample->SetSampleTime(llround((frame_start_time - recording_start_time) * 10000000));
 		sample->SetSampleDuration(10000000 / capture_framerate);
-		if (resizer != NULL) {
-			double d=get_time();
-			CHECK(resizer->ProcessInput(0, sample, 0));
-			sample->Release();
-			buffer->Release();
-			DWORD output_size = capture_width * capture_height * 3 / 2;
-			MFCreateMemoryBuffer(output_size, &buffer);
-			buffer->SetCurrentLength(output_size);
-			MFCreateSample(&sample);
-			sample->AddBuffer(buffer);
-			MFT_OUTPUT_DATA_BUFFER output_data = {};
-			output_data.pSample = sample;
-			DWORD flags;
-			CHECK(resizer->ProcessOutput(0, 1, &output_data, &flags));
-			printf("%f\n",get_time()-d);
-		}
 		CHECK(sink_writer->WriteSample(video_stream_index, sample));
 		sample->Release();
 		buffer->Release();
@@ -1389,104 +1431,6 @@ void start_recording() {
 	input_type->SetUINT32(MF_MT_DEFAULT_STRIDE, aligned_width);
 	MFSetAttributeSize(input_type, MF_MT_FRAME_SIZE, capture_width, capture_height);
 	MFSetAttributeRatio(input_type, MF_MT_FRAME_RATE, capture_framerate, 1);
-	if (capture_resize) {
-		log_info(L"Initializing resizer...");
-		if (video_options.resizer_method == RESIZER_BUILT_IN) {
-			resizer = new Resizer;
-		}
-		if (video_options.resizer_method == RESIZER_RESIZER_DSP) {
-			CoCreateInstance(CLSID_CResizerDMO, NULL, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&resizer));
-		}
-		if (video_options.resizer_method == RESIZER_VIDEO_PROCESSOR_MFT) {
-			CoCreateInstance(CLSID_VideoProcessorMFT, NULL, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&resizer));
-		}
-		if (resizer == NULL) {
-		resizer_error:
-			MessageBox(main_window, L"Failed to initialize resizer!", L"Video error", MB_ICONERROR);
-		}
-	}
-	if (resizer != NULL) {
-		IMFMediaType* media_type;
-		MFCreateMediaType(&media_type);
-		media_type->SetGUID(MF_MT_MAJOR_TYPE, MFMediaType_Video);
-		media_type->SetGUID(MF_MT_SUBTYPE, format_guid);
-		media_type->SetUINT32(MF_MT_DEFAULT_STRIDE, aligned_width);
-		MFSetAttributeSize(media_type, MF_MT_FRAME_SIZE, aligned_width, aligned_height);
-		HRESULT input_error = resizer->SetInputType(0, media_type, 0);
-		media_type->SetUINT32(MF_MT_DEFAULT_STRIDE, capture_width);
-		MFSetAttributeSize(media_type, MF_MT_FRAME_SIZE, capture_width, capture_height);
-		HRESULT output_error = resizer->SetOutputType(0, media_type, 0);
-		media_type->Release();
-		if (FAILED(input_error) || FAILED(output_error)) {
-			resizer->Release();
-			resizer = NULL;
-			goto resizer_error;
-		}
-		int src_x = 0;
-		int src_y = 0;
-		int dst_x = 0;
-		int dst_y = 0;
-		int src_width = source_width;
-		int src_height = source_height;
-		int dst_width = capture_width;
-		int dst_height = capture_height;
-		if (video_options.resize_mode == RESIZE_MODE_LETTERBOX) {
-			dst_width = min(dst_width, dst_height * source_width / source_height);
-			dst_height = min(dst_height, dst_width * source_height / source_width);
-		}
-		if (video_options.resize_mode == RESIZE_MODE_CROP) {
-			src_width = min(src_width, src_height * capture_width / capture_height);
-			src_height = min(src_height, src_width * capture_height / capture_width);
-		}
-		src_x = (source_width - src_width) / 2;
-		src_y = (source_height - src_height) / 2;
-		dst_x = (capture_width - dst_width) / 2;
-		dst_y = (capture_height - dst_height) / 2;
-		src_x -= src_x % 2;
-		src_y -= src_y % 2;
-		dst_x -= dst_x % 2;
-		dst_y -= dst_y % 2;
-		RECT src_rect = { src_x, src_y, src_x + src_width, src_y + src_height };
-		RECT dst_rect = { dst_x, dst_y, dst_x + dst_width, dst_y + dst_height };
-		if (video_options.resizer_method == RESIZER_BUILT_IN) {
-			Resizer* real_resizer = (Resizer*)resizer;
-			real_resizer->set_src_rect(&src_rect);
-			real_resizer->set_dst_rect(&dst_rect);
-			real_resizer->set_quality(video_options.quality_resizer);
-		}
-		if (video_options.resizer_method == RESIZER_RESIZER_DSP) {
-			IWMResizerProps* properties;
-			resizer->QueryInterface(IID_PPV_ARGS(&properties));
-			properties->SetFullCropRegion(src_x, src_y, src_width, src_height, dst_x, dst_y, dst_width, dst_height);
-			properties->SetResizerQuality(video_options.quality_resizer);
-			properties->Release();
-		}
-		if (video_options.resizer_method == RESIZER_VIDEO_PROCESSOR_MFT) {
-			IMFVideoProcessorControl* control;
-			resizer->QueryInterface(IID_PPV_ARGS(&control));
-			control->SetSourceRectangle(&src_rect);
-			control->SetDestinationRectangle(&dst_rect);
-			control->Release();
-		}
-		if (video_options.gpu_resizer) {
-			UINT32 gpu_supported = 0;
-			IMFAttributes* attributes = NULL;
-			resizer->GetAttributes(&attributes);
-			if (attributes != NULL) {
-				attributes->GetUINT32(MF_SA_D3D_AWARE, &gpu_supported);
-				attributes->Release();
-			}
-			if (gpu_supported == 0) {
-				MessageBox(main_window, L"Resizer does not support hardware acceleration!", L"Video warning", MB_ICONWARNING);
-				video_options.gpu_resizer = false;
-			}
-			else {
-				resizer->ProcessMessage(MFT_MESSAGE_SET_D3D_MANAGER, 1);
-			}
-		}
-		input_type->SetUINT32(MF_MT_DEFAULT_STRIDE, capture_width);
-		log_info(L"Initialized resizer");
-	}
 	HRESULT input_error = sink_writer->AddStream(output_type, &video_stream_index);
 	HRESULT output_error = sink_writer->SetInputMediaType(video_stream_index, input_type, NULL);
 	output_type->Release();
@@ -1494,10 +1438,6 @@ void start_recording() {
 	if (FAILED(input_error) || FAILED(output_error)) {
 		MessageBox(main_window, L"Bad format!", L"Video error", MB_ICONERROR);
 		sink_writer->Release();
-		if (resizer != NULL) {
-			resizer->Release();
-			resizer = NULL;
-		}
 		recording_running = false;
 		return;
 	}
@@ -1540,10 +1480,6 @@ void stop_recording() {
 	}
 	sink_writer->Finalize();
 	sink_writer->Release();
-	if (resizer != NULL) {
-		resizer->Release();
-		resizer = NULL;
-	}
 	if (settings.window_action != WINDOW_SHOW) {
 		ShowWindow(main_window, SW_SHOWNORMAL);
 	}
@@ -1856,9 +1792,7 @@ LRESULT CALLBACK video_options_proc(HWND window, UINT message, WPARAM wparam, LP
 			add_form(window, &row, L"checkbox", L"Draw cursor when it is invisible", &video_options.always_cursor);
 			add_form(window, &row, NULL, NULL, NULL);
 			add_form(window, &row, L"list", L"Resize mode", &video_options.resize_mode, L"Stretch", L"Letterbox", L"Crop", NULL);
-			add_form(window, &row, L"list", L"Resizer method", &video_options.resizer_method, L"Built-in", L"Video Resizer DSP", L"Video Processor MFT", NULL);
 			add_form(window, &row, L"checkbox", L"High quality resize", &video_options.quality_resizer);
-			add_form(window, &row, L"checkbox", L"Hardware accelerated resize", &video_options.gpu_resizer);
 			add_form(window, &row, NULL, NULL, NULL);
 			add_form(window, &row, L"list", L"Color format", &video_options.color, L"Default - BRG", L"Inverted - RGB", NULL);
 			add_form(window, &row, L"list", L"Encode format", &video_options.format, L"IYUV", L"NV12", NULL);
@@ -1954,23 +1888,12 @@ void draw_preview() {
 		DrawText(render_context, L"Preview Disabled", -1, &rect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
 	}
 	else {
-		int src_width = source_width;
-		int src_height = source_height;
-		if (capture_resize) {
-			if (video_options.resize_mode == RESIZE_MODE_LETTERBOX) {
-				FillRect(render_context, &rect, black_brush);
-				dst_width = min(dst_width, dst_height * source_width / source_height);
-				dst_height = min(dst_height, dst_width * source_height / source_width);
-			}
-			if (video_options.resize_mode == RESIZE_MODE_CROP) {
-				src_width = min(src_width, src_height * dst_width / dst_height);
-				src_height = min(src_height, src_width * dst_height / dst_width);
-			}
-		}
+		int src_width = capture_width;
+		int src_height = capture_height;
 		int src_x = middle_x - dst_width / 2;
 		int src_y = middle_y - (dst_height + 1) / 2;
-		int dst_x = (source_width - src_width) / 2;
-		int dst_y = (source_height - src_height) / 2;
+		int dst_x = (capture_width - src_width) / 2;
+		int dst_y = (capture_height - src_height) / 2;
 		if (video_options.color == COLOR_BGR) {
 			AcquireSRWLockShared(&capture_lock);
 			StretchDIBits(render_context, src_x, src_y, dst_width, dst_height, dst_x, dst_y, src_width, src_height, capture_buffer, (const BITMAPINFO*)&capture_info, DIB_RGB_COLORS, SRCCOPY);
