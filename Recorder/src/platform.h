@@ -15,6 +15,7 @@
 #include <mmdeviceapi.h>
 #include <audioclient.h>
 #include <wmcodecdsp.h>
+#include <wincodec.h>
 #include <d3d9.h>
 #include <d3d11.h>
 #include <dxgi1_2.h>
@@ -36,3 +37,4 @@
 #pragma comment(lib, "d3d10.lib")
 #pragma comment(lib, "d3d11.lib")
 #pragma comment(lib, "dxgi.lib")
+#pragma comment(lib, "windowscodecs.lib")

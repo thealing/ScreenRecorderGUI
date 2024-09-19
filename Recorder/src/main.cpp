@@ -88,6 +88,7 @@ struct Settings {
 	int format;
 	int logging;
 	int window_action;
+	Hotkey snapshot_hotkey;
 };
 
 struct Video_Options {
@@ -154,6 +155,7 @@ DWORD video_stream_index;
 HANDLE capture_thread;
 HANDLE encode_thread;
 HANDLE frame_event;
+HANDLE snapshot_event;
 HANDLE stop_event;
 HANDLE update_event;
 HBITMAP pause_image;
@@ -678,6 +680,39 @@ void capture_proc() {
 		}
 		if (captured) {
 			meas_count++;
+		}
+		if (captured && WaitForSingleObject(snapshot_event, 0) == WAIT_OBJECT_0) {
+			log_info(L"Taking snapshot...");
+			IWICImagingFactory* factory;
+			CoCreateInstance(CLSID_WICImagingFactory, nullptr, CLSCTX_INPROC_SERVER, IID_IWICImagingFactory, (void**)&factory);
+			IWICBitmap* bitmap;
+			factory->CreateBitmapFromMemory(capture_width, capture_height, video_options.color == COLOR_BGR ? GUID_WICPixelFormat32bppBGRA : video_options.color == COLOR_RGB ? GUID_WICPixelFormat32bppRGBA : GUID_NULL, capture_width * 4, capture_info.biSizeImage, (BYTE*)capture_buffer, &bitmap);
+			IWICStream* stream;
+			factory->CreateStream(&stream);
+			wchar_t snapshot_path[MAX_PATH];
+			SYSTEMTIME time;
+			GetSystemTime(&time);
+			_swprintf(snapshot_path, L"Snapshot %02hi %02hi %02hi %02hi %02hi %02hi.png", time.wYear % 100, time.wMonth, time.wDay, time.wHour, time.wMinute, time.wSecond);
+			stream->InitializeFromFilename(snapshot_path, GENERIC_WRITE);
+			IWICBitmapEncoder* encoder;
+			factory->CreateEncoder(GUID_ContainerFormatPng, nullptr, &encoder);
+			encoder->Initialize(stream, WICBitmapEncoderNoCache);
+			IWICBitmapFrameEncode* frame;
+			encoder->CreateNewFrame(&frame, nullptr);
+			frame->Initialize(nullptr);
+			frame->SetSize(capture_width, capture_height);
+			WICPixelFormatGUID format = GUID_WICPixelFormat32bppBGRA;
+			frame->SetPixelFormat(&format);
+			frame->WriteSource(bitmap, nullptr);
+			frame->Commit();
+			encoder->Commit();
+			frame->Release();
+			encoder->Release();
+			stream->Release();
+			bitmap->Release();
+			factory->Release();
+			MessageBeep(MB_OK);
+			log_info(L"Took snapshot");
 		}
 		if (current_time > meas_time + meas_interval) {
 			meas_capture_fps = meas_count / (current_time - meas_time);
@@ -1762,6 +1797,7 @@ LRESULT CALLBACK settings_proc(HWND window, UINT message, WPARAM wparam, LPARAM 
 			add_form(window, &row, L"hotkey", L"Pause recording", &settings.pause_hotkey);
 			add_form(window, &row, L"hotkey", L"Resume recording", &settings.resume_hotkey);
 			add_form(window, &row, L"hotkey", L"Refresh capture", &settings.refresh_hotkey);
+			add_form(window, &row, L"hotkey", L"Take snapshot", &settings.snapshot_hotkey);
 			add_form(window, &row, NULL, NULL, NULL);
 			add_form(window, &row, L"list", L"Enable logging", &settings.logging, L"No logging", L"Single file", L"Time-stamped files", NULL);
 			return row;
@@ -2002,6 +2038,10 @@ LRESULT CALLBACK keyboard_hook_proc(int code, WPARAM wparam, LPARAM lparam) {
 					if (!recording_running) {
 						update_capture();
 					}
+					return 1;
+				}
+				if (memcmp(&hotkey, &settings.snapshot_hotkey, sizeof(Hotkey)) == 0) {
+					SetEvent(snapshot_event);
 					return 1;
 				}
 			}
@@ -2288,6 +2328,7 @@ int real_main() {
 	black_brush = CreateSolidBrush(RGB(0, 0, 0));
 	background_brush = CreateSolidBrush(RGB(220, 220, 220));
 	outline_pen = CreatePen(PS_SOLID, 2, RGB(0, 0, 0));
+	snapshot_event = CreateEvent(NULL, FALSE, FALSE, NULL);
 	update_event = CreateEvent(NULL, FALSE, FALSE, NULL);
 	InitializeCriticalSection(&update_section);
 	CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)update_capture_proc, NULL, 0, NULL);
@@ -2332,7 +2373,7 @@ int main() {
 
 /*
 
-custom output location
+resize RGB32 buffer using _mm_i32gather_epi32 with precalculated indices vector for all pixels, and multipliers
 D3DKMTOutputDupl, D3DKMTCreateDCFromMemory (replace window's dc, bypass GetDIBits, get subrect quickly...)
 dwmapi captures (win10): DwmpBeginDisplayCapture, DwmpBeginWindowCapture, ...
 
