@@ -6,6 +6,8 @@
 
 #include "capture.h"
 
+#include "resizer.h"
+
 int next_multiple(int x, int y) {
 	return (x + y - 1) / x * x;
 }

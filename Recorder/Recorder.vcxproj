@@ -241,6 +241,7 @@
     <ClInclude Include="src\log.h" />
     <ClInclude Include="src\main.h" />
     <ClInclude Include="src\platform.h" />
+    <ClInclude Include="src\resizer.h" />
     <ClInclude Include="src\util.h" />
   </ItemGroup>
   <ItemGroup>

@@ -36,6 +36,7 @@ enum {
 };
 
 enum {
+	RESIZER_BUILT_IN,
 	RESIZER_RESIZER_DSP,
 	RESIZER_VIDEO_PROCESSOR_MFT,
 };
@@ -56,6 +57,12 @@ enum {
 	FORMAT_NV12,
 };
 
+enum {
+	WINDOW_SHOW,
+	WINDOW_MINIMIZE,
+	WINDOW_HIDE,
+};
+
 struct Hotkey {
 	wchar_t key;
 	bool control;
@@ -65,8 +72,8 @@ struct Hotkey {
 
 struct Settings {
 	bool stay_on_top;
-	bool hide_at_start;
-	bool hide_from_taskbar;
+	bool unused_1;
+	bool unused_2;
 	bool ask_to_play;
 	bool beep_at_start;
 	bool beep_at_stop;
@@ -80,6 +87,7 @@ struct Settings {
 	Hotkey refresh_hotkey;
 	int format;
 	int logging;
+	int window_action;
 };
 
 struct Video_Options {
@@ -128,14 +136,15 @@ Audio_Options audio_options;
 BITMAPINFOHEADER capture_info;
 bool capture_resize;
 bool capture_running;
-bool fullscreen;
-bool lock_controls;
 bool dirty_capture;
+bool fullscreen;
+bool hook_working;
+bool lock_controls;
 bool recording_paused;
 bool recording_running;
 bool resample_audio;
 Capture_Interface* current_capture;
-const wchar_t* output_path;
+CRITICAL_SECTION update_section;
 double meas_capture_fps;
 double meas_encode_fps;
 double meas_interval;
@@ -146,6 +155,7 @@ HANDLE capture_thread;
 HANDLE encode_thread;
 HANDLE frame_event;
 HANDLE stop_event;
+HANDLE update_event;
 HBITMAP pause_image;
 HBITMAP render_bitmap;
 HBITMAP resume_image;
@@ -175,7 +185,6 @@ HWND framerate_label;
 HWND height_edit;
 HWND height_label;
 HWND keep_ratio_checkbox;
-HWND main_window;
 HWND mem_label;
 HWND pause_button;
 HWND resize_checkbox;
@@ -214,7 +223,7 @@ size_t capture_size_max;
 SRWLOCK capture_lock;
 Video_Options video_options;
 void* capture_buffer;
-bool hook_working;
+wchar_t output_path[MAX_PATH];
 
 Capture_Interface* get_capture(int index) {
 	static Capture_Interface** captures = NULL;
@@ -247,6 +256,7 @@ Capture_Interface* get_capture(int index) {
 			index = CAPTURE_DXGI_OUTPUT_DUPLICATION; 
 		}
 	}
+	log_info(L"Using capture: %i", index);
 	return captures[index];
 }
 
@@ -483,6 +493,9 @@ LRESULT CALLBACK form_hotkey_proc(HWND window, UINT message, WPARAM wparam, LPAR
 			data->shift = GetKeyState(VK_SHIFT) & 0x8000;
 			data->alt = GetKeyState(VK_MENU) & 0x8000;
 		}
+		if (key == VK_BACK) {
+			data->key = 0;
+		}
 	}
 	if (message == WM_KEYDOWN || message == WM_USER && wparam == 0) {
 		wchar_t buffer[128] = L"";
@@ -496,7 +509,7 @@ LRESULT CALLBACK form_hotkey_proc(HWND window, UINT message, WPARAM wparam, LPAR
 			wcscat(buffer, L"Alt+");
 		}
 		buffer[wcslen(buffer)] = data->key;
-		if (data->key == 0) {
+		if (data->key == 0 || data->key == VK_BACK) {
 			wcscpy(buffer, L"None");
 		}
 		SetWindowText(window, buffer);
@@ -557,6 +570,7 @@ void update_dimensions() {
 		capture_width = next_multiple(2, source_width);
 		capture_height = next_multiple(2, source_height);
 	}
+	log_info(L"Updated dimensions: %i %i, %i %i, %i %i", source_width, source_height, aligned_width, aligned_height, capture_width, capture_height);
 }
 
 void draw_cursor() {
@@ -622,13 +636,13 @@ void draw_cursor() {
 			}
 			uint8_t* dest = (uint8_t*)((uint32_t*)capture_buffer + y * aligned_width + x);
 			if (icon_info.hbmColor) {
-				for (int i = 0; i < 4; i++) {
-					dest[i] = (dest[i] * (255 - pixel[3]) + pixel[i] * pixel[3]) / 255;
+				for (int k = 0; k < 4; k++) {
+					dest[k] = (dest[k] * (255 - pixel[3]) + pixel[k] * pixel[3]) / 255;
 				}
 			}
 			else {
-				for (int i = 0; i < 4; i++) {
-					dest[i] ^= mask[i];
+				for (int k = 0; k < 4; k++) {
+					dest[k] ^= mask[k];
 				}
 			}
 		}
@@ -638,6 +652,7 @@ void draw_cursor() {
 }
 
 void capture_proc() {
+	log_info(L"Capture thread started");
 	HANDLE timer = CreateWaitableTimer(NULL, TRUE, NULL);
 	LARGE_INTEGER due_time;
 	GetSystemTimeAsFileTime((FILETIME*)&due_time);
@@ -655,8 +670,7 @@ void capture_proc() {
 		}
 		SetEvent(frame_event);
 		if (captured) {
-			static double last_time = get_time();
-			double current_time = get_time();
+			static double last_time = 0;
 			if (current_time > last_time + 1.0 / 60.0) {
 				last_time = current_time;
 				RedrawWindow(main_window, NULL, NULL, RDW_INVALIDATE);
@@ -668,6 +682,9 @@ void capture_proc() {
 		if (current_time > meas_time + meas_interval) {
 			meas_capture_fps = meas_count / (current_time - meas_time);
 			meas_time = current_time;
+			if (meas_count == 0) {
+				log_error(L"Failed to get capture frames!");
+			}
 			meas_count = 0;
 		}
 		LARGE_INTEGER time;
@@ -675,6 +692,7 @@ void capture_proc() {
 		due_time.QuadPart = max(due_time.QuadPart, time.QuadPart);
 	}
 	CloseHandle(timer);
+	log_info(L"Capture thread ended");
 }
 
 void start_capture() {
@@ -686,19 +704,23 @@ void start_capture() {
 	Capture_Source source;
 	source.window = fullscreen ? get_fullscreen_window() : source_window;
 	if (fullscreen) {
+		log_info(L"Starting exclusive fullscreen capture...");
 		get_client_window_rect(source.window, &source_rect);
 		update_dimensions();
+	}
+	else {
+		log_info(L"Starting windowed capture...");
 	}
 	while (video_options.use_hook && (fullscreen || video_source == VIDEO_SOURCE_WINDOW)) {
 		UpdateWindow(main_window);
 		RECT backup_rect = source_rect;
-		if (!inject_hook(source.window, &source_rect)) {
+		hook_working = inject_hook(source.window, &source_rect);
+		if (!hook_working) {
 			source_rect = backup_rect;
 			break;
 		}
 		update_dimensions();
 		current_capture = get_hook_capture();
-		hook_working = true;
 		break;
 	}
 	if (!hook_working) {
@@ -734,14 +756,19 @@ void start_capture() {
 	capture_thread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)capture_proc, NULL, 0, NULL);
 	recording_time = 0;
 	recording_size = 0;
+	dirty_capture = false;
+	log_info(L"Started capture");
+	return;
 end:
 	dirty_capture = false;
+	log_error(L"Failed to start capture!");
 }
 
 void stop_capture() {
 	if (!capture_running || dirty_capture) {
 		return;
 	}
+	log_info(L"Stopping capture...");
 	dirty_capture = true;
 	capture_running = false;
 	if (capture_info.biSizeImage > capture_size_max) {
@@ -756,12 +783,25 @@ void stop_capture() {
 	_aligned_free(capture_buffer);
 end:
 	dirty_capture = false;
+	log_info(L"Stopped capture");
+}
+
+void update_capture_proc() {
+	while (true) {
+		WaitForSingleObject(update_event, INFINITE);
+		log_info(L"Updating capture...");
+		EnterCriticalSection(&update_section);
+		stop_capture();
+		update_dimensions();
+		start_capture();
+		LeaveCriticalSection(&update_section);
+		PostMessage(main_window, WM_USER, 0, 0);
+		log_info(L"Updated capture");
+	}
 }
 
 void update_capture() {
-	stop_capture();
-	update_dimensions();
-	start_capture();
+	SetEvent(update_event);
 }
 
 HBITMAP load_image(int id) {
@@ -788,6 +828,7 @@ HWND create_control(const wchar_t* name, const wchar_t* label, int styles) {
 }
 
 void create_controls() {
+	log_info(L"Creating controls...");
 	video_source_label = create_control(L"STATIC", L"Video Source:", SS_CENTERIMAGE);
 	video_source_list = create_control(L"COMBOBOX", NULL, CBS_AUTOHSCROLL | CBS_DROPDOWN | CBS_HASSTRINGS);
 	SendMessage(video_source_list, CB_ADDSTRING, 0, (LPARAM)L"Fullscreen");
@@ -830,10 +871,15 @@ void create_controls() {
 	size_label = create_control(L"STATIC", L"", SS_OWNERDRAW);
 	cpu_label = create_control(L"STATIC", L"", SS_OWNERDRAW);
 	mem_label = create_control(L"STATIC", L"", SS_OWNERDRAW);
+	log_info(L"Created controls");
 }
 
 void update_controls() {
+	if (lock_controls) {
+		return;
+	}
 	lock_controls = true;
+	log_info(L"Updating controls...");
 	HWND focused_control = GetFocus();
 	wchar_t buffer[128];
 	if (width_edit != focused_control) {
@@ -876,9 +922,11 @@ void update_controls() {
 		EnableWindow(start_button, FALSE);
 	}
 	lock_controls = false;
+	log_info(L"Updated controls");
 }
 
 void place_controls() {
+	log_info(L"Placing controls...");
 	MoveWindow(video_source_label, 10, 10, 80, 20, TRUE);
 	MoveWindow(video_source_list, 100, 10, 150, 100, TRUE);
 	MoveWindow(video_button, 260, 10, 100, 20, TRUE);
@@ -903,9 +951,11 @@ void place_controls() {
 	MoveWindow(cpu_label, main_rect.right - 230, main_rect.bottom - 70, 150, 30, TRUE);
 	MoveWindow(mem_label, main_rect.right - 230, main_rect.bottom - 40, 150, 30, TRUE);
 	MoveWindow(settings_button, main_rect.right - 65, main_rect.bottom - 65, 50, 50, TRUE);
+	log_info(L"Placed controls");
 }
 
 void select_source() {
+	log_info(L"Selecting source...");
 	video_source = (int)SendMessage(video_source_list, CB_GETCURSEL, 0, 0);
 	if (video_source != VIDEO_SOURCE_FULLSCREEN) {
 		ShowWindow(main_window, SW_HIDE);
@@ -922,10 +972,12 @@ void select_source() {
 		source_window = GetDesktopWindow();
 		GetWindowRect(source_window, &source_rect);
 	}
+	log_info(L"Selected source");
 	update_capture();
 }
 
 void encode_proc() {
+	log_info(L"Encode thread started");
 	double meas_time = recording_start_time;
 	double meas_total = 0;
 	int meas_count = 0;
@@ -974,17 +1026,20 @@ void encode_proc() {
 		sample->SetSampleTime(llround((frame_start_time - recording_start_time) * 10000000));
 		sample->SetSampleDuration(10000000 / capture_framerate);
 		if (resizer != NULL) {
+			double d=get_time();
 			CHECK(resizer->ProcessInput(0, sample, 0));
 			sample->Release();
 			buffer->Release();
 			DWORD output_size = capture_width * capture_height * 3 / 2;
 			MFCreateMemoryBuffer(output_size, &buffer);
+			buffer->SetCurrentLength(output_size);
+			MFCreateSample(&sample);
+			sample->AddBuffer(buffer);
 			MFT_OUTPUT_DATA_BUFFER output_data = {};
-			MFCreateSample(&output_data.pSample);
-			output_data.pSample->AddBuffer(buffer);
+			output_data.pSample = sample;
 			DWORD flags;
 			CHECK(resizer->ProcessOutput(0, 1, &output_data, &flags));
-			sample = output_data.pSample;
+			printf("%f\n",get_time()-d);
 		}
 		CHECK(sink_writer->WriteSample(video_stream_index, sample));
 		sample->Release();
@@ -1011,12 +1066,15 @@ void encode_proc() {
 			meas_count = 0;
 		}
 	}
+	log_info(L"Encode thread ended");
 }
 
 void audio_proc(Audio_Input* input) {
 	if (!input->active || FAILED(input->error)) {
+		log_error(L"Audio capture failed!");
 		return;
 	}
+	log_info(L"Audio capture started");
 	input->audio_client->Start();
 	while (true) {
 		WaitForSingleObject(input->audio_event, INFINITE);
@@ -1064,6 +1122,7 @@ void audio_proc(Audio_Input* input) {
 		buffer->Release();
 	}
 	input->audio_client->Stop();
+	log_info(L"Audio capture ended");
 }
 
 void start_player(Audio_Player* player, Audio_Input* input) {
@@ -1087,6 +1146,7 @@ void start_player(Audio_Player* player, Audio_Input* input) {
 	player->render_client->GetBuffer(buffer_size, &data);
 	player->render_client->ReleaseBuffer(buffer_size, AUDCLNT_BUFFERFLAGS_SILENT);
 	player->audio_client->Start();
+	log_info(L"Started audio player");
 }
 
 void stop_player(Audio_Player* player) {
@@ -1098,12 +1158,14 @@ void stop_player(Audio_Player* player) {
 	player->render_client->Release();
 	player->audio_client->Release();
 	player->device->Release();
+	log_info(L"Stopped audio player");
 }
 
 void start_audio(Audio_Input* input, EDataFlow source) {
 	if (input->active) {
 		return;
 	}
+	log_info(L"Starting audio capture on source: %i", source);
 	input->active = true;
 	IMMDeviceEnumerator* device_enumerator;
 	CoCreateInstance(__uuidof(MMDeviceEnumerator), NULL, CLSCTX_ALL, IID_PPV_ARGS(&device_enumerator));
@@ -1148,6 +1210,7 @@ void stop_audio(Audio_Input* input) {
 	if (!input->active) {
 		return;
 	}
+	log_info(L"Stopping audio capture");
 	input->active = false;
 	input->capture_client->Release();
 	input->audio_client->Release();
@@ -1158,6 +1221,7 @@ void stop_audio(Audio_Input* input) {
 }
 
 void update_audio() {
+	log_info(L"Updating audio capture...");
 	if (audio_sources & AUDIO_INPUT_SYSTEM) {
 		stop_audio(&system_input);
 	}
@@ -1171,6 +1235,7 @@ void update_audio() {
 	if (audio_sources & AUDIO_INPUT_MICROPHONE) {
 		start_audio(&microphone_input, eCapture);
 	}
+	log_info(L"Updated audio capture");
 }
 
 void add_audio_stream(Audio_Input* input) {
@@ -1224,6 +1289,7 @@ void add_audio_stream(Audio_Input* input) {
 	}
 	output_type->Release();
 	input_type->Release();
+	log_info(L"Added audio stream");
 }
 
 void stop_audio_stream(Audio_Input* input) {
@@ -1240,15 +1306,18 @@ void start_recording() {
 	if (!capture_running) {
 		return;
 	}
+	log_info(L"Starting recording...");
 	recording_running = true;
 	recording_paused = false;
 	recording_time = 0;
 	recording_size = 0;
-	output_path = L"out.mp4";
-	if (settings.hide_at_start) {
+	SYSTEMTIME time;
+	GetSystemTime(&time);
+	_swprintf(output_path, L"Recording %02hi %02hi %02hi %02hi %02hi %02hi.mp4", time.wYear % 100, time.wMonth, time.wDay, time.wHour, time.wMinute, time.wSecond);
+	if (settings.window_action == WINDOW_MINIMIZE) {
 		ShowWindow(main_window, SW_MINIMIZE);
 	}
-	if (settings.hide_at_start && settings.hide_from_taskbar) {
+	if (settings.window_action == WINDOW_HIDE) {
 		ShowWindow(main_window, SW_HIDE);
 	}
 	update_controls();
@@ -1286,6 +1355,10 @@ void start_recording() {
 	MFSetAttributeSize(input_type, MF_MT_FRAME_SIZE, capture_width, capture_height);
 	MFSetAttributeRatio(input_type, MF_MT_FRAME_RATE, capture_framerate, 1);
 	if (capture_resize) {
+		log_info(L"Initializing resizer...");
+		if (video_options.resizer_method == RESIZER_BUILT_IN) {
+			resizer = new Resizer;
+		}
 		if (video_options.resizer_method == RESIZER_RESIZER_DSP) {
 			CoCreateInstance(CLSID_CResizerDMO, NULL, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&resizer));
 		}
@@ -1334,6 +1407,18 @@ void start_recording() {
 		src_y = (source_height - src_height) / 2;
 		dst_x = (capture_width - dst_width) / 2;
 		dst_y = (capture_height - dst_height) / 2;
+		src_x -= src_x % 2;
+		src_y -= src_y % 2;
+		dst_x -= dst_x % 2;
+		dst_y -= dst_y % 2;
+		RECT src_rect = { src_x, src_y, src_x + src_width, src_y + src_height };
+		RECT dst_rect = { dst_x, dst_y, dst_x + dst_width, dst_y + dst_height };
+		if (video_options.resizer_method == RESIZER_BUILT_IN) {
+			Resizer* real_resizer = (Resizer*)resizer;
+			real_resizer->set_src_rect(&src_rect);
+			real_resizer->set_dst_rect(&dst_rect);
+			real_resizer->set_quality(video_options.quality_resizer);
+		}
 		if (video_options.resizer_method == RESIZER_RESIZER_DSP) {
 			IWMResizerProps* properties;
 			resizer->QueryInterface(IID_PPV_ARGS(&properties));
@@ -1342,8 +1427,6 @@ void start_recording() {
 			properties->Release();
 		}
 		if (video_options.resizer_method == RESIZER_VIDEO_PROCESSOR_MFT) {
-			RECT src_rect = { src_x, src_y, src_x + src_width, src_y + src_height };
-			RECT dst_rect = { dst_x, dst_y, dst_x + dst_width, dst_y + dst_height };
 			IMFVideoProcessorControl* control;
 			resizer->QueryInterface(IID_PPV_ARGS(&control));
 			control->SetSourceRectangle(&src_rect);
@@ -1360,12 +1443,14 @@ void start_recording() {
 			}
 			if (gpu_supported == 0) {
 				MessageBox(main_window, L"Resizer does not support hardware acceleration!", L"Video warning", MB_ICONWARNING);
+				video_options.gpu_resizer = false;
 			}
 			else {
 				resizer->ProcessMessage(MFT_MESSAGE_SET_D3D_MANAGER, 1);
 			}
 		}
 		input_type->SetUINT32(MF_MT_DEFAULT_STRIDE, capture_width);
+		log_info(L"Initialized resizer");
 	}
 	HRESULT input_error = sink_writer->AddStream(output_type, &video_stream_index);
 	HRESULT output_error = sink_writer->SetInputMediaType(video_stream_index, input_type, NULL);
@@ -1399,12 +1484,14 @@ void start_recording() {
 	if (audio_sources & AUDIO_INPUT_MICROPHONE) {
 		microphone_input.thread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)audio_proc, &microphone_input, 0, NULL);
 	}
+	log_info(L"Started recording");
 }
 
 void stop_recording() {
 	if (!recording_running) {
 		return;
 	}
+	log_info(L"Stopping recording...");
 	recording_running = false;
 	recording_paused = false;
 	SetEvent(frame_event);
@@ -1422,7 +1509,7 @@ void stop_recording() {
 		resizer->Release();
 		resizer = NULL;
 	}
-	if (settings.hide_at_start) {
+	if (settings.window_action != WINDOW_SHOW) {
 		ShowWindow(main_window, SW_SHOWNORMAL);
 	}
 	update_controls();
@@ -1435,6 +1522,7 @@ void stop_recording() {
 			ShellExecute(NULL, L"open", output_path, NULL, NULL, SW_SHOWNORMAL);
 		}
 	}
+	log_info(L"Stopped recording");
 }
 
 void pause_recording() {
@@ -1446,6 +1534,7 @@ void pause_recording() {
 	if (settings.beep_at_stop) {
 		Beep(2000, 200);
 	}
+	log_info(L"Paused recording");
 }
 
 void resume_recording() {
@@ -1459,6 +1548,7 @@ void resume_recording() {
 	}
 	recording_start_time += get_time() - recording_pause_time;
 	recording_paused = false;
+	log_info(L"Resumed recording");
 }
 
 void update_source() {
@@ -1467,6 +1557,7 @@ void update_source() {
 	}
 	if ((bool)D3DKMTCheckExclusiveOwnership() != fullscreen) {
 		fullscreen = !fullscreen;
+		log_info(L"%ls exclusive fullscreen", fullscreen ? L"Entered" : L"Exited");
 		stop_recording();
 		update_capture();
 	}
@@ -1481,6 +1572,7 @@ void update_source() {
 		GetWindowRect(source_window, &new_rect);
 		fit_window_rect(source_window, &new_rect);
 		if (memcmp(&source_rect, &new_rect, sizeof(RECT)) != 0) {
+			log_info(L"Video source size changed");
 			source_rect = new_rect;
 			if (capture_resize) {
 				update_capture();
@@ -1498,11 +1590,9 @@ void update_source() {
 			wcscpy(new_title, L"Unnamed Window");
 		}
 		if (wcscmp(source_title, new_title) != 0) {
+			log_info(L"Video source title changed");
 			SetWindowText(video_source_edit, new_title);
 		}
-	}
-	if (GetAsyncKeyState('R') && !recording_running) {
-		update_capture();
 	}
 }
 
@@ -1529,6 +1619,7 @@ LRESULT CALLBACK dialog_proc(HWND window, UINT message, WPARAM wparam, LPARAM lp
 }
 
 HWND create_dialog(int label_width, int control_width, const wchar_t* title, WNDPROC proc) {
+	log_info(L"Creating dialog: %ls", title);
 	int width = label_width + control_width;
 	RECT rect = { 0, 0, width, 10 };
 	LONG style = WS_POPUP | WS_CAPTION | WS_SYSMENU;
@@ -1553,6 +1644,7 @@ HWND create_dialog(int label_width, int control_width, const wchar_t* title, WND
 	EnumChildWindows(window, set_font_proc, (LPARAM)main_font);
 	ShowWindow(window, SW_SHOWNORMAL);
 	RedrawWindow(window, NULL, NULL, RDW_INVALIDATE | RDW_ERASENOW | RDW_UPDATENOW);
+	log_info(L"Created dialog: %ls", title);
 	return window;
 } 
 
@@ -1623,6 +1715,7 @@ void update_settings() {
 	SetWindowPos(main_window, settings.stay_on_top ? HWND_TOPMOST : HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
 	SetStretchBltMode(render_context, settings.quality_preview ? HALFTONE : COLORONCOLOR);
 	save_data(L"Settings", &settings, sizeof(settings));
+	log_info(L"Updated settings");
 }
 
 void init_settings() {
@@ -1652,8 +1745,7 @@ LRESULT CALLBACK settings_proc(HWND window, UINT message, WPARAM wparam, LPARAM 
 			backup = settings;
 			int row = 0;
 			add_form(window, &row, L"checkbox", L"Stay on top", &settings.stay_on_top);
-			add_form(window, &row, L"checkbox", L"Minimize before starting recording", &settings.hide_at_start);
-			add_form(window, &row, L"checkbox", L"Hide from taskbar while recording", &settings.hide_from_taskbar);
+			add_form(window, &row, L"list", L"Visibility during recording", &settings.window_action, L"Normal", L"Minimized", L"Hidden", NULL);
 			add_form(window, &row, NULL, NULL, NULL);
 			add_form(window, &row, L"checkbox", L"Stop recording when the window closes", &settings.stop_on_close);
 			add_form(window, &row, NULL, NULL, NULL);
@@ -1669,7 +1761,7 @@ LRESULT CALLBACK settings_proc(HWND window, UINT message, WPARAM wparam, LPARAM 
 			add_form(window, &row, L"hotkey", L"Stop recording", &settings.stop_hotkey);
 			add_form(window, &row, L"hotkey", L"Pause recording", &settings.pause_hotkey);
 			add_form(window, &row, L"hotkey", L"Resume recording", &settings.resume_hotkey);
-			add_form(window, &row, L"hotkey", L"Refresh", &settings.refresh_hotkey);
+			add_form(window, &row, L"hotkey", L"Refresh capture", &settings.refresh_hotkey);
 			add_form(window, &row, NULL, NULL, NULL);
 			add_form(window, &row, L"list", L"Enable logging", &settings.logging, L"No logging", L"Single file", L"Time-stamped files", NULL);
 			return row;
@@ -1728,7 +1820,7 @@ LRESULT CALLBACK video_options_proc(HWND window, UINT message, WPARAM wparam, LP
 			add_form(window, &row, L"checkbox", L"Draw cursor when it is invisible", &video_options.always_cursor);
 			add_form(window, &row, NULL, NULL, NULL);
 			add_form(window, &row, L"list", L"Resize mode", &video_options.resize_mode, L"Stretch", L"Letterbox", L"Crop", NULL);
-			add_form(window, &row, L"list", L"Resizer method", &video_options.resizer_method, L"Video Resizer DSP", L"Video Processor MFT", NULL);
+			add_form(window, &row, L"list", L"Resizer method", &video_options.resizer_method, L"Built-in", L"Video Resizer DSP", L"Video Processor MFT", NULL);
 			add_form(window, &row, L"checkbox", L"High quality resize", &video_options.quality_resizer);
 			add_form(window, &row, L"checkbox", L"Hardware accelerated resize", &video_options.gpu_resizer);
 			add_form(window, &row, NULL, NULL, NULL);
@@ -1907,7 +1999,9 @@ LRESULT CALLBACK keyboard_hook_proc(int code, WPARAM wparam, LPARAM lparam) {
 					return 1;
 				}
 				if (memcmp(&hotkey, &settings.refresh_hotkey, sizeof(Hotkey)) == 0) {
-					update_capture();
+					if (!recording_running) {
+						update_capture();
+					}
 					return 1;
 				}
 			}
@@ -1957,6 +2051,10 @@ LRESULT CALLBACK window_proc(HWND window, UINT message, WPARAM wparam, LPARAM lp
 		}
 		case WM_TIMER: {
 			update_source();
+			break;
+		}
+		case WM_USER: {
+			update_controls();
 			break;
 		}
 		case WM_PAINT: {
@@ -2190,6 +2288,9 @@ int real_main() {
 	black_brush = CreateSolidBrush(RGB(0, 0, 0));
 	background_brush = CreateSolidBrush(RGB(220, 220, 220));
 	outline_pen = CreatePen(PS_SOLID, 2, RGB(0, 0, 0));
+	update_event = CreateEvent(NULL, FALSE, FALSE, NULL);
+	InitializeCriticalSection(&update_section);
+	CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)update_capture_proc, NULL, 0, NULL);
 	InitializeSRWLock(&capture_lock);
 	capture_framerate = 60;
 	capture_bitrate = 16000;
@@ -2206,11 +2307,11 @@ int real_main() {
 	wc.lpszClassName = L"Scabture Window Class";
 	wc.style = CS_OWNDC | CS_HREDRAW | CS_VREDRAW;
 	RegisterClass(&wc);
-	CreateWindow(wc.lpszClassName, L"Scabinic", WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN | WS_VISIBLE, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, NULL, NULL, NULL, NULL);
+	CreateWindow(wc.lpszClassName, L"Scabture v1.1", WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN | WS_VISIBLE, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, NULL, NULL, NULL, NULL);
 	init_settings();
 	init_config();
 	logging_mode = settings.logging;
-	log_info(L"Started.");
+	log_info(L"Application started");
 	SetTimer(main_window, 1, 100, NULL);
 	MSG msg;
 	while (GetMessage(&msg, NULL, 0, 0) > 0) {
@@ -2220,6 +2321,7 @@ int real_main() {
 	MFShutdown();
 	CoUninitialize();
 	timeEndPeriod(timer_resolution);
+	log_info(L"Application shut down");
 	return 0;
 }
 
@@ -2230,6 +2332,7 @@ int main() {
 
 /*
 
+custom output location
 D3DKMTOutputDupl, D3DKMTCreateDCFromMemory (replace window's dc, bypass GetDIBits, get subrect quickly...)
 dwmapi captures (win10): DwmpBeginDisplayCapture, DwmpBeginWindowCapture, ...
 

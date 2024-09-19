@@ -11,31 +11,30 @@ HANDLE events[INSTANCE_COUNT];
 OVERLAPPED overlapped[INSTANCE_COUNT];
 int connected_index = -1;
 
-void injection_failed() {
-	wprintf(L"Hook injection failed! Error: %d\n", GetLastError());
-	MessageBeep(MB_ICONERROR);
+void injection_failed(const wchar_t* reason) {
+	log_error(L"Hook injection failed! Reason: \"%ls\" Error: %d", reason, GetLastError());
 }
 
 bool inject_hook(HWND window, RECT* rect) {
 	DWORD pid;
 	DWORD tid = GetWindowThreadProcessId(window, &pid);
 	if (tid == 0) {
-		injection_failed();
+		injection_failed(L"GetWindowThreadProcessId");
 		return false;
 	}
 	HANDLE process = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pid);
 	if (process == NULL) {
-		injection_failed();
+		injection_failed(L"OpenProcess");
 		return false;
 	}
 	HMODULE kernel_module = GetModuleHandle(L"kernel32");
 	if (kernel_module == NULL) {
-		injection_failed();
+		injection_failed(L"GetModuleHandle");
 		return false;
 	}
 	FARPROC load_library = GetProcAddress(kernel_module, "LoadLibraryW");
 	if (load_library == NULL) {
-		injection_failed();
+		injection_failed(L"GetProcAddress");
 		return false;
 	}
 	wchar_t dll_path[MAX_PATH];
@@ -51,18 +50,18 @@ bool inject_hook(HWND window, RECT* rect) {
 	}
 	void* virtual_address = VirtualAllocEx(process, NULL, sizeof(dll_path), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
 	if (virtual_address == NULL) {
-		injection_failed();
+		injection_failed(L"VirtualAllocEx");
 		return false;
 	}
 	SIZE_T bytes_written = 0;
 	WriteProcessMemory(process, virtual_address, dll_path, sizeof(dll_path), &bytes_written);
 	if (bytes_written == 0) {
-		injection_failed();
+		injection_failed(L"WriteProcessMemory");
 		return false;
 	}
 	HANDLE inject_thread = CreateRemoteThread(process, NULL, 0, (LPTHREAD_START_ROUTINE)load_library, virtual_address, 0, NULL);
 	if (inject_thread == NULL) {
-		injection_failed();
+		injection_failed(L"CreateRemoteThread");
 		return false;
 	}
 	WaitForSingleObject(inject_thread, INFINITE);
@@ -120,8 +119,9 @@ bool inject_hook(HWND window, RECT* rect) {
 		CloseHandle(events[i]);
 	}
 	if (connected_index == -1) {
-		injection_failed();
+		injection_failed(L"no answer from target");
 		return false;
 	}
+	log_info(L"Hook injection successful");
 	return true;
 }

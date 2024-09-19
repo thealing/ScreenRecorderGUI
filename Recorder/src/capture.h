@@ -24,6 +24,7 @@ class Capture_GDI : public Capture_Interface {
 public:
 	HRESULT start(Capture_Source source) override {
 		m_source = source;
+		memset(&m_source_info, 0, sizeof(m_source_info));
 		m_source_info.biSize = sizeof(m_source_info);
 		m_source_info.biWidth = m_source.stride;
 		m_source_info.biHeight = -m_source.height;
@@ -35,6 +36,7 @@ public:
 		m_capture_context = CreateCompatibleDC(m_source_context);
 		m_capture_bitmap = CreateCompatibleBitmap(m_source_context, m_source.stride, m_source.height);
 		SelectObject(m_capture_context, m_capture_bitmap);
+		log_info(L"Started GDI capture: %p %p", m_source.window, m_source_context);
 		return S_OK;
 	}
 
@@ -141,6 +143,7 @@ public:
 	HRESULT start(Capture_Source source) override {
 		HRESULT result = Capture_GDI::start(source);
 		m_source_bitmap = (HBITMAP)GetCurrentObject(m_source_context, OBJ_BITMAP);
+		log_info(L"Started source bitmap capture: %p", m_source_context);
 		return result;
 	}
 
@@ -249,11 +252,11 @@ public:
 		}
 	end:
 		if (FAILED(result)) {
-			printf("Failed to get shared surface! Error: 0x%08x\n", result);
-			MessageBeep(MB_ICONERROR);
+			log_error(L"Failed to get shared surface! Error: 0x%08x", result);
 			return result;
 		}
 		init_dimensions(source);
+		log_info(L"Started shared surface capture: %p", surface);
 		return result;
 	}
 
@@ -386,10 +389,11 @@ public:
 		safe_release(&adapter);
 		safe_release(&dxgi);
 		if (FAILED(result)) {
-			MessageBox(NULL, L"Failed to initialize output duplication!", L"DXGI error", MB_ICONERROR);
+			log_error(L"Failed to initialize output duplication! Error: 0x%08x", result);
 			return result;
 		}
 		init_dimensions(source);
+		log_info(L"Started output duplication capture");
 		return result;
 	}
 
@@ -471,10 +475,11 @@ public:
 	end:
 		safe_release(&d3d);
 		if (FAILED(result)) {
-			MessageBox(NULL, L"Failed to initialize Direct3D 9!", L"Direct3D error", MB_ICONERROR);
+			log_error(L"Failed to initialize Direct3D 9! Error: 0x%08x", result);
 			return result;
 		}
 		init_dimensions(source);
+		log_info(L"Started Direct3D 9 capture");
 		return result;
 	}
 
