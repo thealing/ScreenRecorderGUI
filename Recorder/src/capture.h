@@ -57,7 +57,7 @@ protected:
 class Capture_BitBlt : public Capture_GDI {
 protected:
 	void blit(DWORD flags) {
-		BitBlt(m_capture_context, 0, 0, m_source.width, m_source.height, m_source_context, m_source.rect.left,  m_source.rect.top, flags);
+		BitBlt(m_capture_context, 0, 0, m_source.width, m_source.height, m_source_context, m_source.rect.left, m_source.rect.top, flags);
 	}
 };
 
