@@ -222,7 +222,8 @@ RECT main_rect;
 RECT source_rect;
 RECT resize_src_rect;
 RECT resize_dst_rect;
-uint32_t** resize_table;
+uint32_t** resize_sources;
+uint8_t* resize_coeffs;
 Settings settings;
 size_t capture_size_max;
 SRWLOCK capture_lock;
@@ -676,12 +677,32 @@ void capture_proc() {
 		if (captured) {
 			draw_cursor();
 		}
-		if (captured && capture_resize) {
-			for (int i = resize_dst_rect.top; i < resize_dst_rect.bottom; i++) {
-				for (int j = resize_dst_rect.left, k = aligned_width * i + j; j < resize_dst_rect.right; j++, k++) {
-					*((uint32_t*)capture_buffer + k) = *resize_table[k];
+		if (captured && resize_sources != NULL) {
+			//double d=get_time();
+			if (resize_coeffs != NULL) {
+				__m128i m_1 = _mm_set_epi8(15, 11, 7, 3, 14, 10, 6, 2, 13, 9, 5, 1, 12, 8, 4, 0);
+				__m128i m_2 = _mm_set_epi8(15, 14, 13, 12, 11, 10, 9, 8, 7, 3, 5, 1, 6, 4, 2, 0);
+				for (int i = resize_dst_rect.top; i < resize_dst_rect.bottom; i++) {
+					for (int j = resize_dst_rect.left, k = aligned_width * i + j; j < resize_dst_rect.right; j++, k++) {
+						__m128i v = _mm_set_epi32(*resize_sources[k * 4 + 3], *resize_sources[k * 4 + 2], *resize_sources[k * 4 + 1], *resize_sources[k * 4 + 0]);
+						v = _mm_shuffle_epi8(v, m_1);
+						__m128i w = _mm_set1_epi32(*(uint32_t*)&resize_coeffs[k * 4]);
+						v = _mm_maddubs_epi16(v, w);
+						v = _mm_hadd_epi16(v, v);
+						v = _mm_srli_epi16(v, 7);
+						v = _mm_shuffle_epi8(v, m_2);
+						*((uint32_t*)capture_buffer + k) = _mm_extract_epi32(v, 0);
+					}
 				}
 			}
+			else {
+				for (int i = resize_dst_rect.top; i < resize_dst_rect.bottom; i++) {
+					for (int j = resize_dst_rect.left, k = aligned_width * i + j; j < resize_dst_rect.right; j++, k++) {
+						*((uint32_t*)capture_buffer + k) = *resize_sources[k];
+					}
+				}
+			}
+			//printf("%f\n",get_time()-d);
 		}
 		SetEvent(frame_event);
 		if (captured) {
@@ -800,6 +821,14 @@ void start_capture() {
 	}
 	capture_buffer = _aligned_malloc(capture_info.biSizeImage, 16);
 	source_buffer = capture_buffer;
+	if (resize_sources != NULL) {
+		free(resize_sources);
+		resize_sources = NULL;
+	}
+	if (resize_coeffs != NULL) {
+		free(resize_coeffs);
+		resize_coeffs = NULL;
+	}
 	if (capture_resize) {
 		memset(capture_buffer, 0, capture_info.biSizeImage);
 		source_buffer = malloc(source_stride * source_height * 4);
@@ -829,15 +858,38 @@ void start_capture() {
 		dst_y -= dst_y % 2;
 		SetRect(&resize_src_rect, src_x, src_y, src_x + src_width, src_y + src_height);
 		SetRect(&resize_dst_rect, dst_x, dst_y, dst_x + dst_width, dst_y + dst_height);
-		if (resize_table != NULL) {
-			free(resize_table);
+		if (video_options.quality_resizer) {
+			resize_sources = (uint32_t**)malloc(aligned_width * aligned_height * 4 * sizeof(*resize_sources));
+			resize_coeffs = (uint8_t*)malloc(aligned_width * aligned_height * 4 * sizeof(*resize_coeffs));
+			const int resolution = 1024;
+			for (dst_y = 0; dst_y < dst_height; dst_y++) {
+				double y = (double)dst_y * src_height / dst_height;
+				int y_f = frac(y) * resolution;
+				int y_c[2] = { resolution - y_f, y_f };
+				int y_v[2] = { floor(y), ceil(y) };
+				for (dst_x = 0; dst_x < dst_width; dst_x++) {
+					double x = (double)dst_x * src_width / dst_width;
+					int x_f = frac(x) * resolution;
+					int x_c[2] = { resolution - x_f, x_f };
+					int x_v[2] = { floor(x), ceil(x) };
+					int index = aligned_width * (resize_dst_rect.top + dst_y) + (resize_dst_rect.left + dst_x);
+					uint32_t** sources = resize_sources + index * 4;
+					uint8_t* coeffs = resize_coeffs + index * 4;
+					for (int i = 0; i < 4; i++) {
+						sources[i] = (uint32_t*)source_buffer + source_stride * (resize_src_rect.top + min(source_height - 1, y_v[i / 2])) + resize_src_rect.left +	min(source_width - 1, x_v[i % 2]);
+						coeffs[i] = (y_c[i / 2] + x_c[i % 2]) / 2 * 64 / resolution;
+					}
+				}
+			}
 		}
-		resize_table = (uint32_t**)malloc(aligned_width * aligned_height * sizeof(uint32_t*));
-		for (dst_y = 0; dst_y < dst_height; dst_y++) {
-			src_y = dst_y * src_height / dst_height;
-			for (dst_x = 0; dst_x < dst_width; dst_x++) {
-				src_x = dst_x * src_width / dst_width;
-				resize_table[aligned_width * (resize_dst_rect.top + dst_y) + (resize_dst_rect.left + dst_x)] = (uint32_t*)source_buffer + source_stride * (resize_src_rect.top + src_y) + (resize_src_rect.left + src_x);
+		else {
+			resize_sources = (uint32_t**)malloc(aligned_width * aligned_height * sizeof(*resize_sources));
+			for (dst_y = 0; dst_y < dst_height; dst_y++) {
+				src_y = dst_y * src_height / dst_height;
+				for (dst_x = 0; dst_x < dst_width; dst_x++) {
+					src_x = dst_x * src_width / dst_width;
+					resize_sources[aligned_width * (resize_dst_rect.top + dst_y) + (resize_dst_rect.left + dst_x)] = (uint32_t*)source_buffer + source_stride * (resize_src_rect.top + src_y) + resize_src_rect.left + src_x;
+				}
 			}
 		}
 	}
@@ -1645,18 +1697,18 @@ HWND add_form(HWND window, int* row, const wchar_t* type, const wchar_t* label, 
 		SUBCLASSPROC control_proc = NULL;
 		if (_wcsicmp(type, L"checkbox") == 0) {
 			control_class = L"BUTTON";
-			control_style =  BS_AUTOCHECKBOX | BS_LEFTTEXT | BS_VCENTER;
+			control_style = BS_AUTOCHECKBOX | BS_LEFTTEXT | BS_VCENTER;
 			control_proc = form_checkbox_proc;
 		}
 		if (_wcsicmp(type, L"hotkey") == 0) {
 			control_class = L"EDIT";
-			control_style =  WS_BORDER | ES_RIGHT;
+			control_style = WS_BORDER | ES_RIGHT;
 			control_proc = form_hotkey_proc;
 			control_width = 120;
 		}
 		if (_wcsicmp(type, L"list") == 0) {
 			control_class = L"COMBOBOX";
-			control_style =  CBS_DROPDOWNLIST | CBS_HASSTRINGS;
+			control_style = CBS_DROPDOWNLIST | CBS_HASSTRINGS;
 			control_proc = form_list_proc;
 			item_height = 500;
 		}
@@ -2220,7 +2272,7 @@ LRESULT CALLBACK window_proc(HWND window, UINT message, WPARAM wparam, LPARAM lp
 						capture_framerate = max(1, _wtoi(buffer));
 					}
 					if (child == bitrate_edit) {
-						capture_bitrate = max(1,  _wtoi(buffer));
+						capture_bitrate = max(1, _wtoi(buffer));
 					}
 					if (SendMessage(keep_ratio_checkbox, BM_GETCHECK, 0, 0) != BST_UNCHECKED) {
 						if (child == width_edit) {

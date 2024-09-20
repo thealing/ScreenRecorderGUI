@@ -6,6 +6,10 @@
 
 #include "capture.h"
 
+double frac(double x) {
+	return x - floor(x);
+}
+
 int next_multiple(int x, int y) {
 	return (x + y - 1) / x * x;
 }
