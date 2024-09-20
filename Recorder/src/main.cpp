@@ -30,12 +30,6 @@ enum {
 };
 
 enum {
-	SOURCE_TYPE_ENTIRE_WINDOW,
-	SOURCE_TYPE_VISIBLE_AREA,
-	SOURCE_TYPE_CLIENT_AREA,
-};
-
-enum {
 	RESIZER_BUILT_IN,
 	RESIZER_RESIZER_DSP,
 	RESIZER_VIDEO_PROCESSOR_MFT,
@@ -220,6 +214,7 @@ int64_t recording_size;
 int64_t recording_time;
 RECT main_rect;
 RECT source_rect;
+POINT source_position;
 RECT resize_src_rect;
 RECT resize_dst_rect;
 uint32_t** resize_sources;
@@ -231,6 +226,7 @@ Video_Options video_options;
 void* source_buffer;
 void* capture_buffer;
 wchar_t output_path[MAX_PATH];
+int supported_type;
 
 Capture_Interface* get_capture(int index) {
 	static Capture_Interface** captures = NULL;
@@ -272,31 +268,8 @@ Capture_Interface* get_hook_capture() {
 	return hook_capture;
 }
 
-void get_window_rect(HWND window, RECT* rect) {
-	switch (video_options.source_type) {
-		case SOURCE_TYPE_ENTIRE_WINDOW: {
-			GetWindowRect(window, rect);
-			break;
-		}
-		case SOURCE_TYPE_VISIBLE_AREA: {
-			GetWindowRect(window, rect);
-			if (is_actual_window(window)) {
-				DwmGetWindowAttribute(window, DWMWA_EXTENDED_FRAME_BOUNDS, rect, sizeof(RECT));
-			}
-			break;
-		}
-		case SOURCE_TYPE_CLIENT_AREA: {
-			GetClientRect(window, rect);
-			POINT origin = { rect->left, rect->top };
-			ClientToScreen(window, &origin);
-			OffsetRect(rect, origin.x, origin.y);
-			break;
-		}
-	}
-}
-
-void fit_window_rect(HWND window, RECT* rect) {
-	switch (video_options.source_type) {
+void fit_window_rect(HWND window, RECT* rect, int type) {
+	switch (type) {
 		case SOURCE_TYPE_ENTIRE_WINDOW: {
 			OffsetRect(rect, -rect->left, -rect->top);
 			break;
@@ -320,6 +293,29 @@ void fit_window_rect(HWND window, RECT* rect) {
 	}
 }
 
+void get_window_rect(HWND window, RECT* rect, int type) {
+	switch (type) {
+		case SOURCE_TYPE_ENTIRE_WINDOW: {
+			GetWindowRect(window, rect);
+			break;
+		}
+		case SOURCE_TYPE_VISIBLE_AREA: {
+			GetWindowRect(window, rect);
+			if (is_actual_window(window)) {
+				DwmGetWindowAttribute(window, DWMWA_EXTENDED_FRAME_BOUNDS, rect, sizeof(RECT));
+			}
+			break;
+		}
+		case SOURCE_TYPE_CLIENT_AREA: {
+			GetClientRect(window, rect);
+			POINT origin = { rect->left, rect->top };
+			ClientToScreen(window, &origin);
+			OffsetRect(rect, origin.x, origin.y);
+			break;
+		}
+	}
+}
+
 void screen_to_window(HWND window, POINT* point) {
 	if (hook_working) {
 		ScreenToClient(window, point);
@@ -331,7 +327,7 @@ void screen_to_window(HWND window, POINT* point) {
 		}
 		return;
 	}
-	switch (video_options.source_type) {
+	switch (supported_type) {
 		case SOURCE_TYPE_ENTIRE_WINDOW: {
 			RECT rect;
 			GetWindowRect(window, &rect);
@@ -341,7 +337,7 @@ void screen_to_window(HWND window, POINT* point) {
 		}
 		case SOURCE_TYPE_VISIBLE_AREA: {
 			RECT rect;
-			get_window_rect(window, &rect);
+			get_window_rect(window, &rect, supported_type);
 			point->x -= rect.left;
 			point->y -= rect.top;
 			break;
@@ -407,7 +403,7 @@ LRESULT CALLBACK selection_proc(HWND window, UINT message, WPARAM wparam, LPARAM
 				if (video_source == VIDEO_SOURCE_WINDOW) {
 					POINT position = { mouse_x, mouse_y };
 					selected_window = get_window_under_point(position, window);
-					get_window_rect(selected_window, &selected_rect);
+					get_window_rect(selected_window, &selected_rect, video_options.source_type);
 				}
 				FillRect(draw_context, &window_rect, black_brush);
 				FillRect(draw_context, &selected_rect, white_brush);
@@ -432,7 +428,7 @@ LRESULT CALLBACK selection_proc(HWND window, UINT message, WPARAM wparam, LPARAM
 					POINT position = { mouseX, mouseY };
 					source_window = selected_window;
 					source_rect = selected_rect;
-					fit_window_rect(selected_window, &source_rect);
+					fit_window_rect(selected_window, &source_rect, video_options.source_type);
 				}
 				DestroyWindow(window);
 			}
@@ -682,7 +678,6 @@ void capture_proc() {
 			draw_cursor();
 		}
 		if (captured && resize_sources != NULL) {
-			//double d=get_time();
 			if (resize_coeffs != NULL) {
 				__m128i m_1 = _mm_set_epi8(15, 11, 7, 3, 14, 10, 6, 2, 13, 9, 5, 1, 12, 8, 4, 0);
 				__m128i m_2 = _mm_set_epi8(15, 14, 13, 12, 11, 10, 9, 8, 7, 3, 5, 1, 6, 4, 2, 0);
@@ -706,7 +701,6 @@ void capture_proc() {
 					}
 				}
 			}
-			//printf("%f\n",get_time()-d);
 		}
 		SetEvent(frame_event);
 		if (captured) {
@@ -795,6 +789,12 @@ void start_capture() {
 	}
 	if (!hook_working) {
 		current_capture = get_capture(video_options.capture_method);
+		supported_type = current_capture->get_source_type(video_options.source_type);
+		if (supported_type != video_options.source_type) {
+			GetWindowRect(source_window, &source_rect);
+			fit_window_rect(source_window, &source_rect, supported_type);
+			update_dimensions();
+		}
 	}
 	capture_running = true;
 	capture_info.biSize = sizeof(capture_info);
@@ -1118,6 +1118,10 @@ void select_source() {
 		source_window = GetDesktopWindow();
 		GetWindowRect(source_window, &source_rect);
 	}
+	RECT rect;
+	GetWindowRect(source_window, &rect);
+	source_position.x = rect.left;
+	source_position.y = rect.top;
 	log_info(L"Selected source");
 	update_capture();
 }
@@ -1594,17 +1598,18 @@ void update_source() {
 	if (video_source == VIDEO_SOURCE_WINDOW && !hook_working && IsWindow(source_window) && !IsIconic(source_window) && !recording_running) {
 		RECT new_rect;
 		GetWindowRect(source_window, &new_rect);
-		fit_window_rect(source_window, &new_rect);
+		POINT new_position = { new_rect.left, new_rect.top };
+		fit_window_rect(source_window, &new_rect, supported_type);
 		if (memcmp(&source_rect, &new_rect, sizeof(RECT)) != 0) {
 			log_info(L"Video source size changed");
 			source_rect = new_rect;
-			if (capture_resize) {
-				update_capture();
-			}
-			else {
-				update_capture();
-			}
+			update_capture();
 			update_controls();
+		}
+		else if (memcmp(&source_position, &new_position, sizeof(POINT)) != 0) {
+			log_info(L"Video source position changed");
+			source_position = new_position;
+			update_capture();
 		}
 		wchar_t source_title[128];
 		GetWindowText(video_source_edit, source_title, _countof(source_title));

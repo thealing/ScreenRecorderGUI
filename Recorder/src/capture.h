@@ -2,6 +2,12 @@
 
 #include "hook.h"
 
+enum {
+	SOURCE_TYPE_ENTIRE_WINDOW,
+	SOURCE_TYPE_VISIBLE_AREA,
+	SOURCE_TYPE_CLIENT_AREA,
+};
+
 struct Capture_Source {
 	HWND window;
 	bool client;
@@ -18,9 +24,18 @@ public:
 	virtual void stop() = 0;
 
 	virtual bool get(void* buffer, SRWLOCK* lock) = 0;
+
+	virtual int get_source_type(int type) = 0;
 };
 
-class Capture_GDI : public Capture_Interface {
+class Capture_Base : public Capture_Interface {
+public:
+	int get_source_type(int type) override {
+		return type;
+	}
+};
+
+class Capture_GDI : public Capture_Base {
 public:
 	HRESULT start(Capture_Source source) override {
 		m_source = source;
@@ -105,7 +120,14 @@ public:
 	}
 };
 
-class Capture_PrintWindow_GetDIBits : public Capture_GDI {
+class Capture_PrintWindow : public Capture_GDI {
+public:
+	int get_source_type(int type) override {
+		return type == SOURCE_TYPE_VISIBLE_AREA ? SOURCE_TYPE_ENTIRE_WINDOW : type;
+	}
+};
+
+class Capture_PrintWindow_GetDIBits : public Capture_PrintWindow {
 public:
 	bool get(void* buffer, SRWLOCK* lock) override {
 		PrintWindow(m_source.window, m_capture_context, m_source.client);
@@ -116,7 +138,7 @@ public:
 	}
 };
 
-class Capture_PrintWindow_GetBitmapBits : public Capture_GDI {
+class Capture_PrintWindow_GetBitmapBits : public Capture_PrintWindow {
 public:
 	bool get(void* buffer, SRWLOCK* lock) override {
 		PrintWindow(m_source.window, m_capture_context, m_source.client);
@@ -127,7 +149,7 @@ public:
 	}
 };
 
-class Capture_DWM_PrintWindow : public Capture_GDI {
+class Capture_DWM_PrintWindow : public Capture_PrintWindow {
 public:
 	bool get(void* buffer, SRWLOCK* lock) override {
 		PrintWindow(m_source.window, m_capture_context, m_source.client + 2);
@@ -150,6 +172,10 @@ public:
 	void stop() override {
 		DeleteObject(m_source_bitmap);
 		Capture_GDI::stop();
+	}
+
+	int get_source_type(int type) override {
+		return SOURCE_TYPE_ENTIRE_WINDOW;
 	}
 
 protected:
@@ -225,7 +251,7 @@ protected:
 	}
 };
 
-class Capture_SharedSurface : public Capture_Interface, private Capture_Window_Only {
+class Capture_SharedSurface : public Capture_Base, private Capture_Window_Only {
 public:
 	HRESULT start(Capture_Source source) override {
 		HANDLE surface;
@@ -352,7 +378,7 @@ private:
 	DwmDxGetWindowSharedSurface GetWindowSharedSurface = (DwmDxGetWindowSharedSurface)GetProcAddress(GetModuleHandle(L"dwmapi"), "DwmpDxGetWindowSharedSurface");
 };
 
-class Capture_DXGI_Output_Duplication : public Capture_Interface, private Capture_Fullscreen_Only {
+class Capture_DXGI_Output_Duplication : public Capture_Base, private Capture_Fullscreen_Only {
 public:
 	HRESULT start(Capture_Source source) override {
 		IDXGIDevice* dxgi = NULL;
@@ -447,7 +473,7 @@ private:
 	IDXGIOutputDuplication* m_duplication = NULL;
 };
 
-class Capture_Direct3D_9 : public Capture_Interface, private Capture_Fullscreen_Only {
+class Capture_Direct3D_9 : public Capture_Base, private Capture_Fullscreen_Only {
 public:
 	HRESULT start(Capture_Source source) override {
 		HRESULT result = S_OK;
@@ -506,7 +532,7 @@ protected:
 	IDirect3DSurface9* m_surface = NULL;
 };
 
-class Capture_Hook : public Capture_Interface {
+class Capture_Hook : public Capture_Base {
 public:
 	HRESULT start(Capture_Source source) override {
 		m_width = source.rect.right;
