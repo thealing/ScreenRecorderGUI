@@ -321,7 +321,7 @@ void fit_window_rect(HWND window, RECT* rect) {
 }
 
 void screen_to_window(HWND window, POINT* point) {
-	if (video_options.use_hook) {
+	if (hook_working) {
 		ScreenToClient(window, point);
 		RECT rect;
 		GetClientRect(window, &rect);
@@ -608,6 +608,10 @@ void draw_cursor() {
 		return;
 	}
 	screen_to_window(source_window, &cursor_info.ptScreenPos);
+	if (video_source == VIDEO_SOURCE_RECTANGLE) {
+		cursor_info.ptScreenPos.x -= source_rect.left;
+		cursor_info.ptScreenPos.y -= source_rect.top;
+	}
 	BITMAP icon_bitmap;
 	GetObject(icon_info.hbmColor ? icon_info.hbmColor : icon_info.hbmMask, sizeof(BITMAP), &icon_bitmap);
 	int width = icon_bitmap.bmWidth;
@@ -725,7 +729,7 @@ void capture_proc() {
 			factory->CreateStream(&stream);
 			wchar_t snapshot_path[MAX_PATH];
 			SYSTEMTIME time;
-			GetSystemTime(&time);
+			get_local_time(&time);
 			_swprintf(snapshot_path, L"Snapshot %02hi %02hi %02hi %02hi %02hi %02hi.png", time.wYear % 100, time.wMonth, time.wDay, time.wHour, time.wMinute, time.wSecond);
 			stream->InitializeFromFilename(snapshot_path, GENERIC_WRITE);
 			IWICBitmapEncoder* encoder;
@@ -751,9 +755,6 @@ void capture_proc() {
 		if (current_time > meas_time + meas_interval) {
 			meas_capture_fps = meas_count / (current_time - meas_time);
 			meas_time = current_time;
-			if (meas_count == 0) {
-				log_error(L"Failed to get capture frames!");
-			}
 			meas_count = 0;
 		}
 		LARGE_INTEGER time;
@@ -876,7 +877,7 @@ void start_capture() {
 					uint32_t** sources = resize_sources + index * 4;
 					uint8_t* coeffs = resize_coeffs + index * 4;
 					for (int i = 0; i < 4; i++) {
-						sources[i] = (uint32_t*)source_buffer + source_stride * (resize_src_rect.top + min(source_height - 1, y_v[i / 2])) + resize_src_rect.left +	min(source_width - 1, x_v[i % 2]);
+						sources[i] = (uint32_t*)source_buffer + source_stride * (resize_src_rect.top + min(max(y_v[i / 2], 0), source_height - 1)) + resize_src_rect.left +	 min(max(x_v[i % 2], 0), source_width - 1);
 						coeffs[i] = (y_c[i / 2] + x_c[i % 2]) / 2 * 64 / resolution;
 					}
 				}
@@ -1441,7 +1442,7 @@ void start_recording() {
 	recording_time = 0;
 	recording_size = 0;
 	SYSTEMTIME time;
-	GetSystemTime(&time);
+	get_local_time(&time);
 	_swprintf(output_path, L"Recording %02hi %02hi %02hi %02hi %02hi %02hi.mp4", time.wYear % 100, time.wMonth, time.wDay, time.wHour, time.wMinute, time.wSecond);
 	if (settings.window_action == WINDOW_MINIMIZE) {
 		ShowWindow(main_window, SW_MINIMIZE);

@@ -12,6 +12,11 @@ int logging_mode;
 bool supressed_errors;
 HWND main_window;
 
+void get_local_time(SYSTEMTIME* time) {
+	GetSystemTime(time);
+	SystemTimeToTzSpecificLocalTime(NULL, time, time);
+}
+
 void log_format(const wchar_t* format, ...) {
 	static FILE* file = NULL;
 	if (file == NULL) {
@@ -23,7 +28,7 @@ void log_format(const wchar_t* format, ...) {
 			}
 			case LOGGING_DATE_FILE: {
 				SYSTEMTIME time;
-				GetSystemTime(&time);
+				get_local_time(&time);
 				_swprintf(log_name, L"Scabture Log [%04hi.%02hi.%02hi.] [%02hi.%02hi.%02hi.%03hi].txt", time.wYear, time.wMonth, time.wDay, time.wHour, time.wMinute, time.wSecond, time.wMilliseconds);
 				break;
 			}
@@ -44,7 +49,7 @@ void log_message(const wchar_t* type, const wchar_t* content) {
 	}
 	EnterCriticalSection(&section);
 	SYSTEMTIME time;
-	GetSystemTime(&time);
+	get_local_time(&time);
 	log_format(L"[%02hi:%02hi:%02hi] [%5i] [%ls] %ls\n", time.wHour, time.wMinute, time.wSecond, GetCurrentThreadId(), type, content);
 	LeaveCriticalSection(&section);
 }
