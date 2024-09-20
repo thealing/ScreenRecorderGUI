@@ -863,12 +863,12 @@ void start_capture() {
 			resize_coeffs = (uint8_t*)malloc(aligned_width * aligned_height * 4 * sizeof(*resize_coeffs));
 			const int resolution = 1024;
 			for (dst_y = 0; dst_y < dst_height; dst_y++) {
-				double y = (double)dst_y * src_height / dst_height;
+				double y = (dst_y + 0.5) * src_height / dst_height - 0.5;
 				int y_f = frac(y) * resolution;
 				int y_c[2] = { resolution - y_f, y_f };
 				int y_v[2] = { floor(y), ceil(y) };
 				for (dst_x = 0; dst_x < dst_width; dst_x++) {
-					double x = (double)dst_x * src_width / dst_width;
+					double x = (dst_x + 0.5) * src_width / dst_width - 0.5;
 					int x_f = frac(x) * resolution;
 					int x_c[2] = { resolution - x_f, x_f };
 					int x_v[2] = { floor(x), ceil(x) };
