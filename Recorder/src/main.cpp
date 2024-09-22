@@ -246,7 +246,7 @@ Capture_Interface* get_capture(int index) {
 		captures[CAPTURE_DIRECT3D_DWMDXGETWINDOWSHAREDSURFACE] = new Capture_DwmDxGetWindowSharedSurface;
 		captures[CAPTURE_DXGI_OUTPUT_DUPLICATION] = new Capture_DXGI_Output_Duplication;
 	}
-	if (index == CAPTURE_DEFAULT) {
+	if (index == CAPTURE_DEFAULT) { // Windows 10
 		if (video_source == VIDEO_SOURCE_WINDOW) {
 			if (video_options.source_type == SOURCE_TYPE_VISIBLE_AREA) {
 				index = CAPTURE_BITBLT_GETDIBITS;
@@ -660,7 +660,7 @@ void draw_cursor() {
 	free(masks);
 }
 
-void capture_proc() {
+DWORD WINAPI capture_proc(LPDWORD) {
 	log_info(L"Capture thread started");
 	HANDLE timer = CreateWaitableTimer(NULL, TRUE, NULL);
 	LARGE_INTEGER due_time;
@@ -690,7 +690,7 @@ void capture_proc() {
 						v = _mm_hadd_epi16(v, v);
 						v = _mm_srli_epi16(v, 7);
 						v = _mm_shuffle_epi8(v, m_2);
-						*((uint32_t*)capture_buffer + k) = _mm_extract_epi32(v, 0);
+						*((uint32_t*)capture_buffer + k) = _mm_cvtsi128_si32(v);
 					}
 				}
 			}
@@ -757,6 +757,7 @@ void capture_proc() {
 	}
 	CloseHandle(timer);
 	log_info(L"Capture thread ended");
+	return 0;
 }
 
 void start_capture() {
@@ -932,7 +933,7 @@ end:
 	log_info(L"Stopped capture");
 }
 
-void update_capture_proc() {
+DWORD WINAPI update_capture_proc(LPDWORD) {
 	while (true) {
 		WaitForSingleObject(update_event, INFINITE);
 		log_info(L"Updating capture...");
@@ -1126,7 +1127,7 @@ void select_source() {
 	update_capture();
 }
 
-void encode_proc() {
+DWORD WINAPI encode_proc(LPDWORD) {
 	log_info(L"Encode thread started");
 	double meas_time = recording_start_time;
 	double meas_total = 0;
@@ -1201,12 +1202,13 @@ void encode_proc() {
 		}
 	}
 	log_info(L"Encode thread ended");
+	return 0;
 }
 
-void audio_proc(Audio_Input* input) {
+DWORD WINAPI audio_proc(Audio_Input* input) {
 	if (!input->active || FAILED(input->error)) {
 		log_error(L"Audio capture failed!");
-		return;
+		return 0;
 	}
 	log_info(L"Audio capture started");
 	input->audio_client->Start();
@@ -1257,6 +1259,7 @@ void audio_proc(Audio_Input* input) {
 	}
 	input->audio_client->Stop();
 	log_info(L"Audio capture ended");
+	return 0;
 }
 
 void start_player(Audio_Player* player, Audio_Input* input) {
@@ -1376,6 +1379,7 @@ void add_audio_stream(Audio_Input* input) {
 	if (!input->active) {
 		return;
 	}
+	log_info(L"Adding audio stream...");
 	input->error = 0;
 	IMFMediaType* input_type;
 	MFCreateMediaType(&input_type);
@@ -2057,6 +2061,12 @@ LRESULT CALLBACK window_proc(HWND window, UINT message, WPARAM wparam, LPARAM lp
 			place_controls();
 			break;
 		}
+		case WM_CLOSE: {
+			if (recording_running) {
+				return 0;
+			}
+			break;
+		}
 		case WM_DESTROY: {
 			save_config();
 			PostQuitMessage(0);
@@ -2352,10 +2362,7 @@ int main() {
 	return 0;
 }
 
-/*
-
-resize RGB32 buffer using _mm_i32gather_epi32 with precalculated indices vector for all pixels, and multipliers
-D3DKMTOutputDupl, D3DKMTCreateDCFromMemory (replace window's dc, bypass GetDIBits, get subrect quickly...)
-dwmapi captures (win10): DwmpBeginDisplayCapture, DwmpBeginWindowCapture, ...
-
-*/
+int WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
+	real_main();
+	return 0;
+}
