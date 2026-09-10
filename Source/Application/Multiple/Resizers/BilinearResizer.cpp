@@ -36,6 +36,13 @@ BilinearResizer::BilinearResizer(Vector inputSize, Vector outputSize, const Rect
 		int index = outputSize.x * (outputRect.lower.y + outputY) + outputRect.lower.x;
 		for (int outputX = 0; outputX < outputWidth; outputX++)
 		{
+			int x0 = (int)floorf(inputX);
+			int x1 = (int)ceilf(inputX);
+			__m128i x = _mm_set_epi32(x1, x0, x1, x0);
+			x = _mm_max_epi32(x, min);
+			x = _mm_min_epi32(x, maxX);
+			x = _mm_add_epi32(x, y);
+			_mm_store_si128((__m128i*)&_indexBuffer[index * 4], x);
 			float fractionX = inputX - floorf(inputX);
 			float v0 = fractionX;
 			float v1 = 1.0f - fractionX;
@@ -44,14 +51,7 @@ BilinearResizer::BilinearResizer(Vector inputSize, Vector outputSize, const Rect
 			v = _mm_mul_ps(v, weightFactor);
 			__m128i u = _mm_cvtps_epi32(v);
 			u = _mm_shuffle_epi8(u, weightMask);
-			int x0 = (int)floorf(inputX);
-			int x1 = (int)ceilf(inputX);
-			__m128i x = _mm_set_epi32(x1, x0, x1, x0);
-			x = _mm_max_epi32(x, min);
-			x = _mm_min_epi32(x, maxX);
-			x = _mm_add_epi32(x, y);
-			_mm_store_si128((__m128i*)&_indexBuffer[index * 4], x);
-			_mm_storeu_epi32(&_weightBuffer[index], u);
+			_weightBuffer[index] = _mm_cvtsi128_si32(u);
 			inputX += deltaX;
 			index++;
 		}
