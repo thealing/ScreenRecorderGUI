@@ -2,6 +2,7 @@
 
 AudioDeviceProvider::AudioDeviceProvider()
 {
+	_refCount = 0;
 	_foregroundWindow = NULL;
 	_inputStatus = false;
 	_outputStatus = false;
@@ -133,6 +134,7 @@ HRESULT AudioDeviceProvider::getDeviceName(LPCWSTR deviceId, PROPVARIANT* device
 	}
 	if (!result)
 	{
+		InitPropVariantFromString(L"none", deviceName);
 		LogUtil::logComWarning(__FUNCTION__, result);
 	}
 	return result;
@@ -140,23 +142,25 @@ HRESULT AudioDeviceProvider::getDeviceName(LPCWSTR deviceId, PROPVARIANT* device
 
 ULONG AudioDeviceProvider::AddRef()
 {
-	return 0;
+	return InterlockedIncrement(&_refCount);
 }
 
 ULONG AudioDeviceProvider::Release()
 {
-	return 0;
+	return InterlockedDecrement(&_refCount);
 }
 
 HRESULT AudioDeviceProvider::QueryInterface(REFIID riid, void** ppvObject)
 {
 	if (riid == __uuidof(IUnknown))
 	{
+		AddRef();
 		*ppvObject = this;
 		return S_OK;
 	}
 	if (riid == __uuidof(IMMNotificationClient))
 	{
+		AddRef();
 		*ppvObject = this;
 		return S_OK;
 	}
@@ -187,6 +191,11 @@ HRESULT AudioDeviceProvider::OnDeviceStateChanged(LPCWSTR pwstrDeviceId, DWORD d
 		case DEVICE_STATE_UNPLUGGED:
 		{
 			pszState = L"UNPLUGGED";
+			break;
+		}
+		default:
+		{
+			pszState = L"UNKNOWN";
 			break;
 		}
 	}

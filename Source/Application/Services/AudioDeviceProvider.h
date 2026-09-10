@@ -42,6 +42,7 @@ private:
 
 private:
 
+	unsigned int _refCount;
 	Status _status;
 	ComPointer<IMMDeviceEnumerator> _enumerator;
 	UniquePointer<Timer> _checkTimer;
