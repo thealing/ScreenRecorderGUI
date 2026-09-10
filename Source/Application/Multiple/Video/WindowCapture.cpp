@@ -7,6 +7,7 @@ WindowCapture::WindowCapture(HWND window)
 
 void WindowCapture::start(int frameRate)
 {
+	_failTime = 0;
 	_timer = new Timer(0, 1.0 / frameRate, BIND(WindowCapture, update, this));
 }
 
@@ -32,5 +33,21 @@ void WindowCapture::update()
 		signalError();
 		return;
 	}
-	captureFrame();
+	if (captureFrame())
+	{
+		_failTime = 0;
+		return;
+	}
+	if (_failTime == 0)
+	{
+		_failTime = getTime();
+		return;
+	}
+	double currentTime = getTime();
+	if (currentTime > _failTime + 1)
+	{
+		_window = NULL;
+		signalError();
+		return;
+	}
 }

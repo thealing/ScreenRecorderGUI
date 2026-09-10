@@ -31,7 +31,7 @@ VideoCaptureController::~VideoCaptureController()
 void VideoCaptureController::onCaptureFailed()
 {
 	LogUtil::logInfo(L"VideoCaptureController: Video capture failed.");
-	_videoCaptureManager->reset();
+	updateCapture();
 }
 
 void VideoCaptureController::onWindowCaptureChanged()
