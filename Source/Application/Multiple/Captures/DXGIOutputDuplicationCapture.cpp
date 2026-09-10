@@ -24,9 +24,13 @@ DXGIOutputDuplicationCapture::DXGIOutputDuplicationCapture(HWND window, POINT po
 	if (_status)
 	{
 		UINT outputIndex = 0;
-		do
+		while (true)
 		{
 			_status = adapter->EnumOutputs(outputIndex, &output);
+			if (!_status)
+			{
+				break;
+			}
 			DXGI_OUTPUT_DESC desc = {};
 			output->GetDesc(&desc);
 			if (desc.Monitor == monitor)
@@ -35,7 +39,6 @@ DXGIOutputDuplicationCapture::DXGIOutputDuplicationCapture(HWND window, POINT po
 			}
 			outputIndex++;
 		}
-		while (_status);
 	}
 	if (_status)
 	{
@@ -73,7 +76,10 @@ bool DXGIOutputDuplicationCapture::captureFrame()
 	D3D11_TEXTURE2D_DESC desc = {};
 	D3D11_MAPPED_SUBRESOURCE map = {};
 	Status result;
-	result = _duplication->AcquireNextFrame(INFINITE, &frameInfo, &desktopResource);
+	if (result)
+	{
+		result = _duplication->AcquireNextFrame(10000, &frameInfo, &desktopResource);
+	}
 	if (result)
 	{
 		result = desktopResource->QueryInterface(IID_PPV_ARGS(&desktopTexture));
@@ -107,6 +113,9 @@ bool DXGIOutputDuplicationCapture::captureFrame()
 		endFrame(result);
 		_context->Unmap(captureTexture, 0);
 	}
-	_duplication->ReleaseFrame();
+	if (desktopResource != NULL)
+	{
+		_duplication->ReleaseFrame();
+	}
 	return result;
 }
