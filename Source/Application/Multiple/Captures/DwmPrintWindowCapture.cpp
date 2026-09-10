@@ -38,7 +38,7 @@ bool DwmPrintWindowCapture::captureFrame()
 	if (result)
 	{
 		HWND window = getWindow();
-		result = PrintWindow(window, _captureContext, PW_CLIENTONLY | PW_RENDERFULLCONTENT);
+		result = PrintWindow(window, _captureContext, 3);
 	}
 	if (result)
 	{
