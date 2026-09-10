@@ -23,6 +23,8 @@ protected:
 
 private:
 
+	mutable ReadWriteLock _lock;
+
 	const wchar_t* _name;
 	Settings _settings;
 	LatchEvent _initEvent;

@@ -16,14 +16,15 @@ const Event* SettingsManager<Settings>::getChangeEvent()
 template<class Settings>
 bool SettingsManager<Settings>::setSettings(const Settings& settings)
 {
-	// Must always signal a change for the first setting!
 	if (!_initEvent.set())
 	{
+		ReadLockHolder holder(&_lock);
 		if (MemoryUtil::areEqual(_settings, settings))
 		{
 			return false;
 		}
 	}
+	WriteLockHolder holder(&_lock);
 	_settings = settings;
 	validate(_settings);
 	SaveUtil::saveSettings(_name, &_settings);
@@ -34,6 +35,7 @@ bool SettingsManager<Settings>::setSettings(const Settings& settings)
 template<class Settings>
 Settings SettingsManager<Settings>::getSettings() const
 {
+	ReadLockHolder holder(&_lock);
 	return _settings;
 }
 
