@@ -58,8 +58,4 @@ SilencePlayer::~SilencePlayer()
 	{
 		_status = _audioClient->Stop();
 	}
-	if (!_status)
-	{
-		LogUtil::logComError("SilencePlayer", _status);
-	}
 }

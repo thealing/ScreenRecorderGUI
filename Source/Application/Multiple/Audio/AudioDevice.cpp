@@ -71,10 +71,6 @@ AudioDevice::~AudioDevice()
 	{
 		_status = _audioClient->Stop();
 	}
-	if (!_status)
-	{
-		LogUtil::logComError("AudioDevice", _status);
-	}
 }
 
 HRESULT AudioDevice::getFormat(IMFMediaType** format)
