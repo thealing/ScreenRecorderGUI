@@ -2,9 +2,11 @@
 
 OverlayWindow::OverlayWindow(const wchar_t* title)
 {
-	_width = GetSystemMetrics(SM_CXSCREEN);
-	_height = GetSystemMetrics(SM_CYSCREEN);
-	_handle = CreateWindowEx(WS_EX_LAYERED | WS_EX_TOPMOST, L"STATIC", title, WS_POPUP | WS_VISIBLE, 0, 0, _width, _height, NULL, NULL, NULL, NULL);
+	int x = GetSystemMetrics(SM_XVIRTUALSCREEN);
+	int y = GetSystemMetrics(SM_YVIRTUALSCREEN);
+	_width = GetSystemMetrics(SM_CXVIRTUALSCREEN);
+	_height = GetSystemMetrics(SM_CYVIRTUALSCREEN);
+	_handle = CreateWindowEx(WS_EX_LAYERED | WS_EX_TOPMOST, L"STATIC", title, WS_POPUP | WS_VISIBLE, x, y, _width, _height, NULL, NULL, NULL, NULL);
 	SetWindowLongPtr(_handle, GWLP_USERDATA, (LONG_PTR)this);
 	SetWindowLongPtr(_handle, GWLP_WNDPROC, (LONG_PTR)windowProc);
 	HDC hdc = GetDC(_handle);
