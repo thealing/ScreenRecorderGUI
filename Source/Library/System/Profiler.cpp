@@ -5,7 +5,11 @@ static Thread* _thread;
 
 static void threadProc(void*)
 {
+	AllocConsole();
 	MessageBeep(MB_OK);
+	FILE* file;
+	freopen_s(&file, "CONOUT$", "w", stdout);
+	freopen_s(&file, "CONIN$", "r", stdin);
 	while (true)
 	{
 		int totalCount = 0;
@@ -18,7 +22,7 @@ static void threadProc(void*)
 		while (true)
 		{
 			double currentTime = getTime();
-			if (currentTime - updateTime >= 0.0011)
+			if (currentTime - updateTime >= 0.00011)
 			{
 				updateTime = currentTime;
 				totalCount++;
