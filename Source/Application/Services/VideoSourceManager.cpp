@@ -22,22 +22,20 @@ const Event* VideoSourceManager::getDestroyEvent()
 
 void VideoSourceManager::setFullscreenSource(HMONITOR monitor)
 {
-	MONITORINFO monitorInfo = {};
-	monitorInfo.cbSize = sizeof(MONITORINFO);
-	GetMonitorInfo(monitor, &monitorInfo);
-	HWND desktopWindow = GetDesktopWindow();
-	setSource(VideoSourceFullscreen, desktopWindow, monitorInfo.rcMonitor);
+	HWND window = GetDesktopWindow();
+	RECT rect = {};
+	setSource(VideoSourceFullscreen, window, monitor, rect);
 }
 
 void VideoSourceManager::setRectangleSource(HWND window, RECT rect)
 {
-	setSource(VideoSourceRectangle, window, rect);
+	setSource(VideoSourceRectangle, window, NULL, rect);
 }
 
 void VideoSourceManager::setWindowSource(HWND window)
 {
 	RECT rect = {};
-	setSource(VideoSourceWindow, window, rect);
+	setSource(VideoSourceWindow, window, NULL, rect);
 }
 
 VideoSource VideoSourceManager::getSource() const
@@ -50,22 +48,30 @@ VideoSource VideoSourceManager::getSource(HWND* window, RECT* rect) const
 {
 	ReadLockHolder holder(&_lock);
 	*window = _window;
-	if (_source != VideoSourceRectangle)
+	if (_source == VideoSourceFullscreen)
 	{
-		GetClientRect(_window, rect);
+		MONITORINFO monitorInfo = {};
+		monitorInfo.cbSize = sizeof(MONITORINFO);
+		GetMonitorInfo(_monitor, &monitorInfo);
+		*rect = monitorInfo.rcMonitor;
 	}
-	else
+	if (_source == VideoSourceRectangle)
 	{
 		*rect = _rect;
+	}
+	if (_source == VideoSourceWindow)
+	{
+		GetClientRect(_window, rect);
 	}
 	return _source;
 }
 
-void VideoSourceManager::setSource(VideoSource source, HWND window, RECT rect)
+void VideoSourceManager::setSource(VideoSource source, HWND window, HMONITOR monitor, RECT rect)
 {
 	WriteLockHolder holder(&_lock);
 	_source = source;
 	_window = window;
+	_monitor = monitor;
 	_rect = rect;
 	_size = WindowUtil::getClientSize(window);
 	_changeEventPool.setEvents();

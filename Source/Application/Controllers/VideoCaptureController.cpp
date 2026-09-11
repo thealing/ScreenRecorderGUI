@@ -89,8 +89,8 @@ void VideoCaptureController::updateCapture()
 {
 	LogUtil::logInfo(L"VideoCaptureController: Updating capture.");
 	_videoCaptureManager->reset();
-	HWND window;
-	RECT rect;
+	HWND window = NULL;
+	RECT rect = {};
 	VideoSource source = _videoSourceManager->getSource(&window, &rect);
 	VideoCapture* capture;
 	if (source == VideoSourceWindow)

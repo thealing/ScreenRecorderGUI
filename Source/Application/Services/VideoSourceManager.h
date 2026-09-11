@@ -24,7 +24,7 @@ public:
 
 private:
 
-	void setSource(VideoSource source, HWND window, RECT rect);
+	void setSource(VideoSource source, HWND window, HMONITOR monitor, RECT rect);
 
 	void update();
 
@@ -34,6 +34,7 @@ private:
 
 	VideoSource _source;
 	HWND _window;
+	HMONITOR _monitor;
 	RECT _rect;
 	SIZE _size;
 	UniquePointer<Timer> _timer;
