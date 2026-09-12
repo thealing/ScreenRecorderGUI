@@ -4,7 +4,6 @@ DXGIOutputDuplicationCapture::DXGIOutputDuplicationCapture(HWND window, POINT po
 {
 	_position = position;
 	createBuffer(size.cx, size.cy);
-	HMONITOR monitor = MonitorFromWindow(window, MONITOR_DEFAULTTONEAREST);
 	ComPointer<IDXGIDevice> dxgi;
 	ComPointer<IDXGIAdapter> adapter;
 	ComPointer<IDXGIOutput> output;
@@ -33,8 +32,13 @@ DXGIOutputDuplicationCapture::DXGIOutputDuplicationCapture(HWND window, POINT po
 			}
 			DXGI_OUTPUT_DESC desc = {};
 			output->GetDesc(&desc);
-			if (desc.Monitor == monitor)
+			MONITORINFO monitorInfo = {};
+			monitorInfo.cbSize = sizeof(MONITORINFO);
+			GetMonitorInfo(desc.Monitor, &monitorInfo);
+			if (PtInRect(&monitorInfo.rcMonitor, position))
 			{
+				_position.x -= monitorInfo.rcMonitor.left;
+				_position.y -= monitorInfo.rcMonitor.top;
 				break;
 			}
 			outputIndex++;

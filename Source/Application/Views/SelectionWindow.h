@@ -20,6 +20,8 @@ private:
 
 	void onPaint();
 
+	POINT getScreenPoint(LPARAM lParam) const;
+
 	virtual bool handleMessage(UINT message, WPARAM wParam, LPARAM lParam) override;
 
 private:
