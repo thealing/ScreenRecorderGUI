@@ -10,7 +10,12 @@ SelectionWindow::SelectionWindow() : OverlayWindow(L"Selection Window")
 
 void SelectionWindow::setRect(const RECT& rect)
 {
-	_rect = rect;
+	HWND handle = getHandle();
+	POINT lowerBound = { rect.left, rect.top };
+	POINT upperBound = { rect.right, rect.bottom };
+	ScreenToClient(handle, &lowerBound);
+	ScreenToClient(handle, &upperBound);
+	_rect = { lowerBound.x, lowerBound.y, upperBound.x, upperBound.y };
 	postMessage(WM_PAINT, 0, 0);
 }
 
@@ -25,6 +30,14 @@ void SelectionWindow::onPaint()
 	display();
 }
 
+POINT SelectionWindow::getScreenPoint(LPARAM lParam) const
+{
+	HWND handle = getHandle();
+	POINT point = { LOWORD(lParam), HIWORD(lParam) };
+	ClientToScreen(handle, &point);
+	return point;
+}
+
 bool SelectionWindow::handleMessage(UINT message, WPARAM, LPARAM lParam)
 {
 	switch (message)
@@ -36,16 +49,14 @@ bool SelectionWindow::handleMessage(UINT message, WPARAM, LPARAM lParam)
 		}
 		case WM_MOUSEMOVE:
 		{
-			int x = LOWORD(lParam);
-			int y = HIWORD(lParam);
-			onMouseMove(x, y);
+			POINT point = getScreenPoint(lParam);
+			onMouseMove(point.x, point.y);
 			return true;
 		}
 		case WM_LBUTTONDOWN:
 		{
-			int x = LOWORD(lParam);
-			int y = HIWORD(lParam);
-			onMouseClick(x, y);
+			POINT point = getScreenPoint(lParam);
+			onMouseClick(point.x, point.y);
 			return true;
 		}
 		case WM_PAINT:

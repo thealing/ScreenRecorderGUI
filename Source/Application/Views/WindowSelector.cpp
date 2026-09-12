@@ -15,6 +15,7 @@ HWND WindowSelector::getWindowUnderPoint(POINT point)
 	HWND result = NULL;
 	RECT rect = {};
 	HWND window = GetDesktopWindow();
+	window = GetWindow(window, GW_CHILD);
 	while (window != NULL)
 	{
 		HWND overlayWindow = getHandle();
