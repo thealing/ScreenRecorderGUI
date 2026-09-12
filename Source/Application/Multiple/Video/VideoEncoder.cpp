@@ -43,12 +43,6 @@ VideoEncoder::VideoEncoder(const VideoEncoderSettings& settings, VideoCapture* s
 	if (_status)
 	{
 		const Buffer* buffer = _source->getBuffer();
-		int stride = buffer->getStride();
-		_status = inputType->SetUINT32(MF_MT_DEFAULT_STRIDE, stride);
-	}
-	if (_status)
-	{
-		const Buffer* buffer = _source->getBuffer();
 		int width = buffer->getWidth();
 		int height = buffer->getHeight();
 		_status = MFSetAttributeSize(inputType, MF_MT_FRAME_SIZE, width, height);
@@ -90,22 +84,10 @@ HRESULT VideoEncoder::getSample(IMFSample** sample)
 	DWORD height = captureBuffer->getHeight();
 	DWORD pixelCount = stride * height;
 	DWORD encodedSize = pixelCount * 3 / 2;
-	ComPointer<IMFMediaBuffer> buffer;
-	BYTE* data = NULL;
+	BYTE* data = BufferUtil::allocateBuffer<BYTE>(encodedSize);
+	Aligned2DBuffer* buffer = new Aligned2DBuffer(data, stride, encodedSize);
 	LONGLONG timestamp = 0;
 	Status result;
-	if (result)
-	{
-		result = MFCreateAlignedMemoryBuffer(encodedSize, MF_16_BYTE_ALIGNMENT, &buffer);
-	}
-	if (result)
-	{
-		result = buffer->SetCurrentLength(encodedSize);
-	}
-	if (result)
-	{
-		result = buffer->Lock(&data, NULL, NULL);
-	}
 	if (result)
 	{
 		const uint32_t* inputPixels = captureBuffer->beginReading();
@@ -123,7 +105,6 @@ HRESULT VideoEncoder::getSample(IMFSample** sample)
 			}
 		}
 		timestamp = captureBuffer->endReading();
-		result = buffer->Unlock();
 	}
 	if (result)
 	{
@@ -146,5 +127,6 @@ HRESULT VideoEncoder::getSample(IMFSample** sample)
 	{
 		LogUtil::logComWarning(__FUNCTION__, result);
 	}
+	buffer->Release();
 	return result;
 }

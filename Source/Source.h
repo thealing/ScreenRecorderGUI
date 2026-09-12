@@ -116,6 +116,7 @@
 #include "Application\Multiple\MediaSource.h"
 #include "Application\Multiple\SinkWriter.h"
 #include "Application\Multiple\Encoder.h"
+#include "Application\Multiple\Aligned2DBuffer.h"
 #include "Application\Multiple\Overlay.h"
 #include "Application\Multiple\MouseOverlay.h"
 #include "Application\Multiple\Audio\SilencePlayer.h"

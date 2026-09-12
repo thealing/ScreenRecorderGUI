@@ -388,6 +388,7 @@
     <None Include="Source\Application\Multiple\Captures\DwmPrintWindowCapture.h" />
     <None Include="Source\Application\Multiple\Captures\DXGIOutputDuplicationCapture.h" />
     <None Include="Source\Application\Multiple\MediaSource.h" />
+    <None Include="Source\Application\Multiple\Aligned2DBuffer.h" />
     <ClInclude Include="Source\Source.h" />
     <ClInclude Include="Source\Resources\Resource.h" />
   </ItemGroup>
@@ -557,6 +558,7 @@
     <None Include="Source\Application\Multiple\Captures\DwmPrintWindowCapture.cpp" />
     <None Include="Source\Application\Multiple\Captures\DXGIOutputDuplicationCapture.cpp" />
     <None Include="Source\Application\Multiple\MediaSource.cpp" />
+    <None Include="Source\Application\Multiple\Aligned2DBuffer.cpp" />
     <ClCompile Include="Source\Source.cpp" />
   </ItemGroup>
   <ItemGroup>

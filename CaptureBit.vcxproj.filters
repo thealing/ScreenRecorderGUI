@@ -21,12 +21,6 @@
     <ClInclude Include="Source\Resources\Resource.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Application\Models\ScreenCaptureMethod.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Application\Models\Settings\ScreenCaptureSettings.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Source\Source.cpp">
@@ -62,1078 +56,1090 @@
     </Image>
   </ItemGroup>
   <ItemGroup>
-    <None Include="Application\Controllers\AudioCaptureController.cpp">
-      <Filter>Source Files</Filter>
+    <None Include="Source\Library\Utils\Virtual.h">
+      <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Controllers\AudioCaptureController.h">
+    <None Include="Source\Library\Windows\WindowComposition.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Controllers\AudioDeviceObserver.cpp">
-      <Filter>Source Files</Filter>
+    <None Include="Source\Application\Services\ScreenCaptureFactory.h">
+      <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Controllers\AudioDeviceObserver.h">
+    <None Include="Source\Application\Utils\StringUtil.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Controllers\AudioPresenter.cpp">
-      <Filter>Source Files</Filter>
+    <None Include="Source\Application\Global\SaveManager.h">
+      <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Controllers\AudioPresenter.h">
+    <None Include="Source\Application\Multiple\Audio\SilencePlayer.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Controllers\AudioSettingsController.cpp">
-      <Filter>Source Files</Filter>
+    <None Include="Source\Application\Controllers\AudioCaptureController.h">
+      <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Controllers\AudioSettingsController.h">
+    <None Include="Source\Application\Controllers\AudioDeviceObserver.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Controllers\AudioSettingsObserver.cpp">
-      <Filter>Source Files</Filter>
+    <None Include="Source\Application\Controllers\AudioPresenter.h">
+      <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Controllers\AudioSettingsObserver.h">
+    <None Include="Source\Application\Controllers\AudioSettingsController.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Controllers\FpsPresenter.cpp">
-      <Filter>Source Files</Filter>
+    <None Include="Source\Application\Controllers\AudioSettingsObserver.h">
+      <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Controllers\FpsPresenter.h">
+    <None Include="Source\Application\Controllers\FpsPresenter.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Controllers\MainSettingsController.cpp">
-      <Filter>Source Files</Filter>
+    <None Include="Source\Application\Controllers\MainSettingsController.h">
+      <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Controllers\MainSettingsController.h">
+    <None Include="Source\Application\Controllers\MainSettingsObserver.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Controllers\MainSettingsObserver.cpp">
-      <Filter>Source Files</Filter>
+    <None Include="Source\Application\Controllers\PreviewPresenter.h">
+      <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Controllers\MainSettingsObserver.h">
+    <None Include="Source\Application\Controllers\QualityController.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Controllers\PreviewPresenter.cpp">
-      <Filter>Source Files</Filter>
+    <None Include="Source\Application\Controllers\RecordingController.h">
+      <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Controllers\PreviewPresenter.h">
+    <None Include="Source\Application\Controllers\RecordingPresenter.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Controllers\QualityController.cpp">
-      <Filter>Source Files</Filter>
+    <None Include="Source\Application\Controllers\ResizeController.h">
+      <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Controllers\QualityController.h">
+    <None Include="Source\Application\Controllers\SnapshotController.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Controllers\RecordingController.cpp">
-      <Filter>Source Files</Filter>
+    <None Include="Source\Application\Controllers\SourceController.h">
+      <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Controllers\RecordingController.h">
+    <None Include="Source\Application\Controllers\UsagePresenter.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Controllers\RecordingPresenter.cpp">
-      <Filter>Source Files</Filter>
+    <None Include="Source\Application\Controllers\VideoCaptureController.h">
+      <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Controllers\RecordingPresenter.h">
+    <None Include="Source\Application\Controllers\VideoSettingsController.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Controllers\ResizeController.cpp">
-      <Filter>Source Files</Filter>
+    <None Include="Source\Application\Controllers\VideoSettingsObserver.h">
+      <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Controllers\ResizeController.h">
+    <None Include="Source\Application\Core\Application.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Controllers\SnapshotController.cpp">
-      <Filter>Source Files</Filter>
+    <None Include="Source\Application\Core\MediaApplication.h">
+      <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Controllers\SnapshotController.h">
+    <None Include="Source\Application\Core\ScreenRecorderApplication.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Controllers\SourceController.cpp">
-      <Filter>Source Files</Filter>
+    <None Include="Source\Application\Global\FontStore.h">
+      <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Controllers\SourceController.h">
+    <None Include="Source\Application\Global\ImageStore.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Controllers\UsagePresenter.cpp">
-      <Filter>Source Files</Filter>
+    <None Include="Source\Application\Global\Logger.h">
+      <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Controllers\UsagePresenter.h">
+    <None Include="Source\Application\Main.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Controllers\VideoCaptureController.cpp">
-      <Filter>Source Files</Filter>
+    <None Include="Source\Application\Models\AudioBitrate.h">
+      <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Controllers\VideoCaptureController.h">
+    <None Include="Source\Application\Models\AudioChannelLayout.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Controllers\VideoSettingsController.cpp">
-      <Filter>Source Files</Filter>
+    <None Include="Source\Application\Models\AudioFormat.h">
+      <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Controllers\VideoSettingsController.h">
+    <None Include="Source\Application\Models\AudioResampleQuality.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Controllers\VideoSettingsObserver.cpp">
-      <Filter>Source Files</Filter>
+    <None Include="Source\Application\Models\AudioSampleRate.h">
+      <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Controllers\VideoSettingsObserver.h">
+    <None Include="Source\Application\Models\AudioSource.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Core\Application.cpp">
-      <Filter>Source Files</Filter>
+    <None Include="Source\Application\Models\WindowCaptureMethod.h">
+      <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Core\Application.h">
+    <None Include="Source\Application\Models\DeviceStatus.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Core\MediaApplication.cpp">
-      <Filter>Source Files</Filter>
+    <None Include="Source\Application\Models\EncodeFormat.h">
+      <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Core\MediaApplication.h">
+    <None Include="Source\Application\Models\Hotkey.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Core\ScreenRecorderApplication.cpp">
-      <Filter>Source Files</Filter>
+    <None Include="Source\Application\Models\LogMode.h">
+      <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Core\ScreenRecorderApplication.h">
+    <None Include="Source\Application\Models\ResizeQuality.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Global\FontStore.cpp">
-      <Filter>Source Files</Filter>
+    <None Include="Source\Application\Models\ResizeMode.h">
+      <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Global\FontStore.h">
+    <None Include="Source\Application\Models\Settings\AudioEncoderSettings.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Global\ImageStore.cpp">
-      <Filter>Source Files</Filter>
+    <None Include="Source\Application\Models\Settings\AudioResamplerSettings.h">
+      <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Global\ImageStore.h">
+    <None Include="Source\Application\Models\Settings\AudioSettings.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Global\Logger.cpp">
-      <Filter>Source Files</Filter>
+    <None Include="Source\Application\Models\Settings\KeyboardSettings.h">
+      <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Global\Logger.h">
+    <None Include="Source\Application\Models\Settings\MainSettings.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Models\Settings\AudioEncoderSettings.h">
+    <None Include="Source\Application\Models\Settings\SinkWriterSettings.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Models\Settings\AudioResamplerSettings.h">
+    <None Include="Source\Application\Models\Settings\VideoEncoderSettings.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Models\Settings\AudioSettings.h">
+    <None Include="Source\Application\Models\Settings\VideoResizerSettings.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Models\Settings\KeyboardSettings.h">
+    <None Include="Source\Application\Models\Settings\VideoSettings.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Models\Settings\MainSettings.h">
+    <None Include="Source\Application\Models\Settings\WindowCaptureSettings.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Models\Settings\SinkWriterSettings.h">
+    <None Include="Source\Application\Models\VideoSource.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Models\Settings\VideoEncoderSettings.h">
+    <None Include="Source\Application\Models\Volumes.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Models\Settings\VideoResizerSettings.h">
+    <None Include="Source\Application\Models\WindowVisibility.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Models\Settings\VideoSettings.h">
+    <None Include="Source\Application\Multiple\Audio\AudioCapture.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Models\Settings\WindowCaptureSettings.h">
+    <None Include="Source\Application\Multiple\Audio\AudioDevice.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Models\AudioBitrate.h">
+    <None Include="Source\Application\Multiple\Audio\AudioEncoder.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Models\AudioChannelLayout.h">
+    <None Include="Source\Application\Multiple\Audio\AudioResampler.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Models\AudioFormat.h">
+    <None Include="Source\Application\Multiple\Audio\AudioVolumeMeter.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Models\AudioResampleQuality.h">
+    <None Include="Source\Application\Multiple\EventDispatcherBase.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Models\AudioSampleRate.h">
+    <None Include="Source\Application\Multiple\Buffer.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Models\AudioSource.h">
+    <None Include="Source\Application\Multiple\CaptureLock.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Models\WindowCaptureMethod.h">
+    <None Include="Source\Application\Multiple\MouseOverlay.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Models\DeviceStatus.h">
+    <None Include="Source\Application\Multiple\ComPointer.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Models\EncodeFormat.h">
+    <None Include="Source\Application\Multiple\Encoder.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Models\Hotkey.h">
+    <None Include="Source\Application\Multiple\EventDispatcher.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Models\LogMode.h">
+    <None Include="Source\Application\Multiple\EventPool.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Models\ResizeQuality.h">
+    <None Include="Source\Application\Multiple\FpsCounter.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Models\ResizeMode.h">
+    <None Include="Source\Application\Multiple\FrameSource.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Models\VideoSource.h">
+    <None Include="Source\Application\Multiple\PropVariant.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Models\Volumes.h">
+    <None Include="Source\Application\Multiple\Resizers\AbstractResizer.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Models\WindowVisibility.h">
+    <None Include="Source\Application\Multiple\Resizers\BilinearResizer.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Multiple\Audio\AudioCapture.cpp">
-      <Filter>Source Files</Filter>
+    <None Include="Source\Application\Multiple\Resizers\NearestResizer.h">
+      <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Multiple\Audio\AudioCapture.h">
+    <None Include="Source\Application\Multiple\Resizers\Resizer.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Multiple\Audio\AudioDevice.cpp">
-      <Filter>Source Files</Filter>
+    <None Include="Source\Application\Multiple\SinkWriter.h">
+      <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Multiple\Audio\AudioDevice.h">
+    <None Include="Source\Application\Multiple\UniquePointer.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Multiple\Audio\AudioEncoder.cpp">
-      <Filter>Source Files</Filter>
+    <None Include="Source\Application\Multiple\UniqueStorage.h">
+      <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Multiple\Audio\AudioEncoder.h">
+    <None Include="Source\Application\Multiple\Video\VideoCapture.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Multiple\Audio\AudioResampler.cpp">
-      <Filter>Source Files</Filter>
+    <None Include="Source\Application\Multiple\Video\VideoEncoder.h">
+      <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Multiple\Audio\AudioResampler.h">
+    <None Include="Source\Application\Multiple\Video\VideoResizer.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Multiple\Audio\AudioVolumeMeter.cpp">
-      <Filter>Source Files</Filter>
+    <None Include="Source\Application\Multiple\Video\WindowCapture.h">
+      <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Multiple\Audio\AudioVolumeMeter.h">
+    <None Include="Source\Application\Multiple\WaveFormat.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Multiple\MouseOverlay.cpp">
-      <Filter>Source Files</Filter>
+    <None Include="Source\Application\Multiple\WeakPointer.h">
+      <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Multiple\MouseOverlay.h">
+    <None Include="Source\Application\Multiple\WindowEventDispatcher.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Multiple\Resizers\AbstractResizer.cpp">
-      <Filter>Source Files</Filter>
+    <None Include="Source\Application\Services\AudioCaptureManager.h">
+      <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Multiple\Resizers\AbstractResizer.h">
+    <None Include="Source\Application\Services\AudioDeviceProvider.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Multiple\Resizers\BilinearResizer.cpp">
-      <Filter>Source Files</Filter>
+    <None Include="Source\Application\Services\AudioEncoderFactory.h">
+      <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Multiple\Resizers\BilinearResizer.h">
+    <None Include="Source\Application\Services\AudioResamplerFactory.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Multiple\Resizers\NearestResizer.cpp">
-      <Filter>Source Files</Filter>
+    <None Include="Source\Application\Services\AudioSettingsManager.h">
+      <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Multiple\Resizers\NearestResizer.h">
+    <None Include="Source\Application\Services\AudioVolumeListener.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Multiple\Resizers\Resizer.cpp">
-      <Filter>Source Files</Filter>
+    <None Include="Source\Application\Services\CpuMonitor.h">
+      <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Multiple\Resizers\Resizer.h">
+    <None Include="Source\Application\Services\KeyboardListener.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Multiple\Video\VideoCapture.cpp">
-      <Filter>Source Files</Filter>
+    <None Include="Source\Application\Services\MainSettingsManager.h">
+      <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Multiple\Video\VideoCapture.h">
+    <None Include="Source\Application\Services\MemoryMonitor.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Multiple\Video\VideoEncoder.cpp">
-      <Filter>Source Files</Filter>
+    <None Include="Source\Application\Services\RecordingManager.h">
+      <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Multiple\Video\VideoEncoder.h">
+    <None Include="Source\Application\Services\SettingsManager.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Multiple\Video\VideoResizer.cpp">
-      <Filter>Source Files</Filter>
+    <None Include="Source\Application\Services\SinkWriterFactory.h">
+      <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Multiple\Video\VideoResizer.h">
+    <None Include="Source\Application\Services\VideoCaptureManager.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Multiple\Video\WindowCapture.cpp">
-      <Filter>Source Files</Filter>
+    <None Include="Source\Application\Services\VideoEncoderFactory.h">
+      <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Multiple\Video\WindowCapture.h">
+    <None Include="Source\Application\Services\VideoResizerFactory.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Multiple\EventDispatcherBase.cpp">
-      <Filter>Source Files</Filter>
+    <None Include="Source\Application\Services\VideoSettingsManager.h">
+      <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Multiple\EventDispatcherBase.h">
+    <None Include="Source\Application\Services\WindowCaptureFactory.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Multiple\Buffer.cpp">
-      <Filter>Source Files</Filter>
+    <None Include="Source\Application\Utils\BufferUtil.h">
+      <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Multiple\Buffer.h">
+    <None Include="Source\Application\Utils\ControlUtil.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Multiple\CaptureLock.cpp">
-      <Filter>Source Files</Filter>
+    <None Include="Source\Application\Utils\FormatConverter.h">
+      <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Multiple\CaptureLock.h">
+    <None Include="Source\Application\Utils\DialogUtil.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Multiple\ComPointer.cpp">
-      <Filter>Source Files</Filter>
+    <None Include="Source\Application\Utils\LogUtil.h">
+      <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Multiple\ComPointer.h">
+    <None Include="Source\Application\Utils\MemoryUtil.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Multiple\Encoder.cpp">
-      <Filter>Source Files</Filter>
+    <None Include="Source\Application\Utils\RectUtil.h">
+      <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Multiple\Encoder.h">
+    <None Include="Source\Application\Utils\SaveUtil.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Multiple\EventDispatcher.cpp">
-      <Filter>Source Files</Filter>
+    <None Include="Source\Application\Utils\WindowUtil.h">
+      <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Multiple\EventDispatcher.h">
+    <None Include="Source\Application\Views\AudioSettingsDialog.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Multiple\EventPool.cpp">
-      <Filter>Source Files</Filter>
+    <None Include="Source\Application\Views\DataCheckbox.h">
+      <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Multiple\EventPool.h">
+    <None Include="Source\Application\Views\DataCombobox.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Multiple\FpsCounter.cpp">
-      <Filter>Source Files</Filter>
+    <None Include="Source\Application\Views\DeviceIndicator.h">
+      <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Multiple\FpsCounter.h">
+    <None Include="Source\Application\Views\DeviceIndicatorAdapter.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Multiple\FrameSource.cpp">
-      <Filter>Source Files</Filter>
+    <None Include="Source\Application\Views\DialogWindow.h">
+      <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Multiple\FrameSource.h">
+    <None Include="Source\Application\Views\FpsDisplay.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Multiple\PropVariant.cpp">
-      <Filter>Source Files</Filter>
+    <None Include="Source\Application\Views\Frame.h">
+      <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Multiple\PropVariant.h">
+    <None Include="Source\Application\Views\HotkeyEdit.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Multiple\SinkWriter.cpp">
-      <Filter>Source Files</Filter>
+    <None Include="Source\Application\Views\MainSettingsDialog.h">
+      <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Multiple\SinkWriter.h">
+    <None Include="Source\Application\Views\MainWindow.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Multiple\UniquePointer.cpp">
-      <Filter>Source Files</Filter>
+    <None Include="Source\Application\Views\OverlayWindow.h">
+      <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Multiple\UniquePointer.h">
+    <None Include="Source\Application\Views\Panel.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Multiple\UniqueStorage.cpp">
-      <Filter>Source Files</Filter>
+    <None Include="Source\Application\Views\PreviewDisplay.h">
+      <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Multiple\UniqueStorage.h">
+    <None Include="Source\Application\Views\QualityPanel.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Multiple\WaveFormat.cpp">
-      <Filter>Source Files</Filter>
+    <None Include="Source\Application\Views\RecordingDisplay.h">
+      <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Multiple\WaveFormat.h">
+    <None Include="Source\Application\Views\RecordingPanel.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Multiple\WeakPointer.cpp">
-      <Filter>Source Files</Filter>
+    <None Include="Source\Application\Views\RectangleSelector.h">
+      <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Multiple\WeakPointer.h">
+    <None Include="Source\Application\Views\ResizePanel.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Multiple\WindowEventDispatcher.cpp">
-      <Filter>Source Files</Filter>
+    <None Include="Source\Application\Views\SelectionWindow.h">
+      <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Multiple\WindowEventDispatcher.h">
+    <None Include="Source\Application\Views\Separator.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Services\AudioCaptureManager.cpp">
-      <Filter>Source Files</Filter>
+    <None Include="Source\Application\Views\SettingsDialog.h">
+      <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Services\AudioCaptureManager.h">
+    <None Include="Source\Application\Views\SettingsPanel.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Services\AudioDeviceProvider.cpp">
-      <Filter>Source Files</Filter>
+    <None Include="Source\Application\Views\SourcePanel.h">
+      <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Services\AudioDeviceProvider.h">
+    <None Include="Source\Application\Views\VideoSettingsDialog.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Services\AudioEncoderFactory.cpp">
-      <Filter>Source Files</Filter>
+    <None Include="Source\Application\Views\VolumeDisplay.h">
+      <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Services\AudioEncoderFactory.h">
+    <None Include="Source\Application\Views\VolumeMeter.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Services\AudioResamplerFactory.cpp">
-      <Filter>Source Files</Filter>
+    <None Include="Source\Application\Views\WindowSelector.h">
+      <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Services\AudioResamplerFactory.h">
+    <None Include="Source\Library\System\Brush.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Services\AudioSettingsManager.cpp">
-      <Filter>Source Files</Filter>
+    <None Include="Source\Library\System\DynamicLibrary.h">
+      <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Services\AudioSettingsManager.h">
+    <None Include="Source\Library\System\Event.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Services\AudioVolumeListener.cpp">
-      <Filter>Source Files</Filter>
+    <None Include="Source\Library\System\ExclusiveLock.h">
+      <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Services\AudioVolumeListener.h">
+    <None Include="Source\Library\System\Font.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Services\CpuMonitor.cpp">
-      <Filter>Source Files</Filter>
+    <None Include="Source\Library\System\Image.h">
+      <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Services\CpuMonitor.h">
+    <None Include="Source\Library\System\Pen.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Services\KeyboardListener.cpp">
-      <Filter>Source Files</Filter>
+    <None Include="Source\Library\System\Profiler.h">
+      <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Services\KeyboardListener.h">
+    <None Include="Source\Library\System\ReadWriteLock.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Services\MainSettingsManager.cpp">
-      <Filter>Source Files</Filter>
+    <None Include="Source\Library\System\Thread.h">
+      <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Services\MainSettingsManager.h">
+    <None Include="Source\Library\System\Timer.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Services\MemoryMonitor.cpp">
-      <Filter>Source Files</Filter>
+    <None Include="Source\Library\Utils\BindHelper.h">
+      <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Services\MemoryMonitor.h">
+    <None Include="Source\Library\Utils\Callback.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Services\RecordingManager.cpp">
-      <Filter>Source Files</Filter>
+    <None Include="Source\Library\Utils\Color.h">
+      <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Services\RecordingManager.h">
+    <None Include="Source\Library\Utils\Date.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Services\SettingsManager.cpp">
-      <Filter>Source Files</Filter>
+    <None Include="Source\Library\Utils\Line.h">
+      <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Services\SettingsManager.h">
+    <None Include="Source\Library\Utils\Math.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Services\SinkWriterFactory.cpp">
-      <Filter>Source Files</Filter>
+    <None Include="Source\Library\Utils\NonCopyable.h">
+      <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Services\SinkWriterFactory.h">
+    <None Include="Source\Library\Utils\Rect.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Services\VideoCaptureManager.cpp">
-      <Filter>Source Files</Filter>
+    <None Include="Source\Library\Utils\Time.h">
+      <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Services\VideoCaptureManager.h">
+    <None Include="Source\Library\Utils\Vector.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Services\VideoEncoderFactory.cpp">
-      <Filter>Source Files</Filter>
+    <None Include="Source\Library\Windows\Alignment.h">
+      <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Services\VideoEncoderFactory.h">
+    <None Include="Source\Library\Windows\Anchor.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Services\VideoResizerFactory.cpp">
-      <Filter>Source Files</Filter>
+    <None Include="Source\Library\Windows\Button.h">
+      <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Services\VideoResizerFactory.h">
+    <None Include="Source\Library\Windows\Checkbox.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Services\VideoSettingsManager.cpp">
-      <Filter>Source Files</Filter>
+    <None Include="Source\Library\Windows\Combobox.h">
+      <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Services\VideoSettingsManager.h">
+    <None Include="Source\Library\Windows\Control.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Services\WindowCaptureFactory.cpp">
-      <Filter>Source Files</Filter>
+    <None Include="Source\Library\Windows\CustomButton.h">
+      <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Services\WindowCaptureFactory.h">
+    <None Include="Source\Library\Windows\CustomControl.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Utils\BufferUtil.cpp">
-      <Filter>Source Files</Filter>
+    <None Include="Source\Library\Windows\Editbox.h">
+      <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Utils\BufferUtil.h">
+    <None Include="Source\Library\Windows\Graphics.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Utils\ControlUtil.cpp">
-      <Filter>Source Files</Filter>
+    <None Include="Source\Library\Windows\Label.h">
+      <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Utils\ControlUtil.h">
+    <None Include="Source\Library\Windows\Picture.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Utils\FormatConverter.cpp">
-      <Filter>Source Files</Filter>
+    <None Include="Source\Library\Windows\Window.h">
+      <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Utils\FormatConverter.h">
+    <None Include="Source\Library\Windows\CustomWindow.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Utils\DialogUtil.cpp">
-      <Filter>Source Files</Filter>
+    <None Include="Source\Application\Multiple\AsyncSettingsManager.h">
+      <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Utils\DialogUtil.h">
+    <None Include="Source\Library\System\LatchEvent.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Utils\LogUtil.cpp">
-      <Filter>Source Files</Filter>
+    <None Include="Source\Application\Multiple\Status.h">
+      <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Utils\LogUtil.h">
+    <None Include="Source\Application\Multiple\Overlay.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Utils\MemoryUtil.cpp">
-      <Filter>Source Files</Filter>
+    <None Include="Source\Application\Multiple\FrameSink.h">
+      <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Utils\MemoryUtil.h">
+    <None Include="Source\Application\Multiple\FrameEmitter.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Utils\RectUtil.cpp">
-      <Filter>Source Files</Filter>
+    <None Include="Source\Application\Multiple\FrameDelegate.h">
+      <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Utils\RectUtil.h">
+    <None Include="Source\Application\Utils\FileUtil.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Utils\SaveUtil.cpp">
-      <Filter>Source Files</Filter>
+    <None Include="Source\Application\Multiple\Captures\BitBltCapture.h">
+      <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Utils\SaveUtil.h">
+    <None Include="Source\Application\Multiple\Captures\DwmSharedSurfaceCapture.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Utils\WindowUtil.cpp">
-      <Filter>Source Files</Filter>
+    <None Include="Source\Application\Models\ScreenCaptureMethod.h">
+      <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Utils\WindowUtil.h">
+    <None Include="Source\Application\Models\Settings\ScreenCaptureSettings.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Views\AudioSettingsDialog.cpp">
-      <Filter>Source Files</Filter>
+    <None Include="Source\Application\Services\AudioSourceManager.h">
+      <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Views\AudioSettingsDialog.h">
+    <None Include="Source\Application\Services\VideoSourceManager.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Views\DataCheckbox.cpp">
-      <Filter>Source Files</Filter>
+    <None Include="Source\Application\Multiple\Captures\DwmPrintWindowCapture.h">
+      <Filter>Header Files</Filter>
+    </None>
+    <None Include="Source\Application\Multiple\Captures\DXGIOutputDuplicationCapture.h">
+      <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Views\DataCheckbox.h">
+    <None Include="Source\Application\Multiple\MediaSource.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="Application\Views\DataCombobox.cpp">
+    <None Include="Source\Library\Utils\Virtual.cpp">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Views\DataCombobox.h">
-      <Filter>Header Files</Filter>
+    <None Include="Source\Library\Windows\WindowComposition.cpp">
+      <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Views\DeviceIndicator.cpp">
+    <None Include="Source\Application\Services\ScreenCaptureFactory.cpp">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Views\DeviceIndicator.h">
-      <Filter>Header Files</Filter>
+    <None Include="Source\Application\Utils\StringUtil.cpp">
+      <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Views\DeviceIndicatorAdapter.cpp">
+    <None Include="Source\Application\Global\SaveManager.cpp">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Views\DeviceIndicatorAdapter.h">
-      <Filter>Header Files</Filter>
+    <None Include="Source\Application\Multiple\Audio\SilencePlayer.cpp">
+      <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Views\DialogWindow.cpp">
+    <None Include="Source\Application\Controllers\AudioCaptureController.cpp">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Views\DialogWindow.h">
-      <Filter>Header Files</Filter>
+    <None Include="Source\Application\Controllers\AudioDeviceObserver.cpp">
+      <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Views\FpsDisplay.cpp">
+    <None Include="Source\Application\Controllers\AudioPresenter.cpp">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Views\FpsDisplay.h">
-      <Filter>Header Files</Filter>
+    <None Include="Source\Application\Controllers\AudioSettingsController.cpp">
+      <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Views\Frame.cpp">
+    <None Include="Source\Application\Controllers\AudioSettingsObserver.cpp">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Views\Frame.h">
-      <Filter>Header Files</Filter>
+    <None Include="Source\Application\Controllers\FpsPresenter.cpp">
+      <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Views\HotkeyEdit.cpp">
+    <None Include="Source\Application\Controllers\MainSettingsController.cpp">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Views\HotkeyEdit.h">
-      <Filter>Header Files</Filter>
+    <None Include="Source\Application\Controllers\MainSettingsObserver.cpp">
+      <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Views\MainSettingsDialog.cpp">
+    <None Include="Source\Application\Controllers\PreviewPresenter.cpp">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Views\MainSettingsDialog.h">
-      <Filter>Header Files</Filter>
+    <None Include="Source\Application\Controllers\QualityController.cpp">
+      <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Views\MainWindow.cpp">
+    <None Include="Source\Application\Controllers\RecordingController.cpp">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Views\MainWindow.h">
-      <Filter>Header Files</Filter>
+    <None Include="Source\Application\Controllers\RecordingPresenter.cpp">
+      <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Views\OverlayWindow.cpp">
+    <None Include="Source\Application\Controllers\ResizeController.cpp">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Views\OverlayWindow.h">
-      <Filter>Header Files</Filter>
+    <None Include="Source\Application\Controllers\SnapshotController.cpp">
+      <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Views\Panel.cpp">
+    <None Include="Source\Application\Controllers\SourceController.cpp">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Views\Panel.h">
-      <Filter>Header Files</Filter>
+    <None Include="Source\Application\Controllers\UsagePresenter.cpp">
+      <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Views\PreviewDisplay.cpp">
+    <None Include="Source\Application\Controllers\VideoCaptureController.cpp">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Views\PreviewDisplay.h">
-      <Filter>Header Files</Filter>
+    <None Include="Source\Application\Controllers\VideoSettingsController.cpp">
+      <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Views\QualityPanel.cpp">
+    <None Include="Source\Application\Controllers\VideoSettingsObserver.cpp">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Views\QualityPanel.h">
-      <Filter>Header Files</Filter>
+    <None Include="Source\Application\Core\Application.cpp">
+      <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Views\RecordingDisplay.cpp">
+    <None Include="Source\Application\Core\MediaApplication.cpp">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Views\RecordingDisplay.h">
-      <Filter>Header Files</Filter>
+    <None Include="Source\Application\Core\ScreenRecorderApplication.cpp">
+      <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Views\RecordingPanel.cpp">
+    <None Include="Source\Application\Global\FontStore.cpp">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Views\RecordingPanel.h">
-      <Filter>Header Files</Filter>
+    <None Include="Source\Application\Global\ImageStore.cpp">
+      <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Views\RectangleSelector.cpp">
+    <None Include="Source\Application\Global\Logger.cpp">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Views\RectangleSelector.h">
-      <Filter>Header Files</Filter>
+    <None Include="Source\Application\Main.cpp">
+      <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Views\ResizePanel.cpp">
+    <None Include="Source\Application\Multiple\Audio\AudioCapture.cpp">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Views\ResizePanel.h">
-      <Filter>Header Files</Filter>
+    <None Include="Source\Application\Multiple\Audio\AudioDevice.cpp">
+      <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Views\SelectionWindow.cpp">
+    <None Include="Source\Application\Multiple\Audio\AudioEncoder.cpp">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Views\SelectionWindow.h">
-      <Filter>Header Files</Filter>
+    <None Include="Source\Application\Multiple\Audio\AudioResampler.cpp">
+      <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Views\Separator.cpp">
+    <None Include="Source\Application\Multiple\Audio\AudioVolumeMeter.cpp">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Views\Separator.h">
-      <Filter>Header Files</Filter>
+    <None Include="Source\Application\Multiple\EventDispatcherBase.cpp">
+      <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Views\SettingsDialog.cpp">
+    <None Include="Source\Application\Multiple\Buffer.cpp">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Views\SettingsDialog.h">
-      <Filter>Header Files</Filter>
+    <None Include="Source\Application\Multiple\CaptureLock.cpp">
+      <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Views\SettingsPanel.cpp">
+    <None Include="Source\Application\Multiple\MouseOverlay.cpp">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Views\SettingsPanel.h">
-      <Filter>Header Files</Filter>
+    <None Include="Source\Application\Multiple\ComPointer.cpp">
+      <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Views\SourcePanel.cpp">
+    <None Include="Source\Application\Multiple\Encoder.cpp">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Views\SourcePanel.h">
-      <Filter>Header Files</Filter>
+    <None Include="Source\Application\Multiple\EventDispatcher.cpp">
+      <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Views\VideoSettingsDialog.cpp">
+    <None Include="Source\Application\Multiple\EventPool.cpp">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Views\VideoSettingsDialog.h">
-      <Filter>Header Files</Filter>
+    <None Include="Source\Application\Multiple\FpsCounter.cpp">
+      <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Views\VolumeDisplay.cpp">
+    <None Include="Source\Application\Multiple\FrameSource.cpp">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Views\VolumeDisplay.h">
-      <Filter>Header Files</Filter>
+    <None Include="Source\Application\Multiple\PropVariant.cpp">
+      <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Views\VolumeMeter.cpp">
+    <None Include="Source\Application\Multiple\Resizers\AbstractResizer.cpp">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Views\VolumeMeter.h">
-      <Filter>Header Files</Filter>
+    <None Include="Source\Application\Multiple\Resizers\BilinearResizer.cpp">
+      <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Views\WindowSelector.cpp">
+    <None Include="Source\Application\Multiple\Resizers\NearestResizer.cpp">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Views\WindowSelector.h">
-      <Filter>Header Files</Filter>
+    <None Include="Source\Application\Multiple\Resizers\Resizer.cpp">
+      <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Main.cpp">
+    <None Include="Source\Application\Multiple\SinkWriter.cpp">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Main.h">
-      <Filter>Header Files</Filter>
+    <None Include="Source\Application\Multiple\UniquePointer.cpp">
+      <Filter>Source Files</Filter>
     </None>
-    <None Include="Library\System\Brush.cpp">
+    <None Include="Source\Application\Multiple\UniqueStorage.cpp">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="Library\System\Brush.h">
-      <Filter>Header Files</Filter>
+    <None Include="Source\Application\Multiple\Video\VideoCapture.cpp">
+      <Filter>Source Files</Filter>
     </None>
-    <None Include="Library\System\DynamicLibrary.cpp">
+    <None Include="Source\Application\Multiple\Video\VideoEncoder.cpp">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="Library\System\DynamicLibrary.h">
-      <Filter>Header Files</Filter>
+    <None Include="Source\Application\Multiple\Video\VideoResizer.cpp">
+      <Filter>Source Files</Filter>
     </None>
-    <None Include="Library\System\Event.cpp">
+    <None Include="Source\Application\Multiple\Video\WindowCapture.cpp">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="Library\System\Event.h">
-      <Filter>Header Files</Filter>
+    <None Include="Source\Application\Multiple\WaveFormat.cpp">
+      <Filter>Source Files</Filter>
     </None>
-    <None Include="Library\System\ExclusiveLock.cpp">
+    <None Include="Source\Application\Multiple\WeakPointer.cpp">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="Library\System\ExclusiveLock.h">
-      <Filter>Header Files</Filter>
+    <None Include="Source\Application\Multiple\WindowEventDispatcher.cpp">
+      <Filter>Source Files</Filter>
     </None>
-    <None Include="Library\System\Font.cpp">
+    <None Include="Source\Application\Services\AudioCaptureManager.cpp">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="Library\System\Font.h">
-      <Filter>Header Files</Filter>
+    <None Include="Source\Application\Services\AudioDeviceProvider.cpp">
+      <Filter>Source Files</Filter>
     </None>
-    <None Include="Library\System\Image.cpp">
+    <None Include="Source\Application\Services\AudioEncoderFactory.cpp">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="Library\System\Image.h">
-      <Filter>Header Files</Filter>
+    <None Include="Source\Application\Services\AudioResamplerFactory.cpp">
+      <Filter>Source Files</Filter>
     </None>
-    <None Include="Library\System\Pen.cpp">
+    <None Include="Source\Application\Services\AudioSettingsManager.cpp">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="Library\System\Pen.h">
-      <Filter>Header Files</Filter>
+    <None Include="Source\Application\Services\AudioVolumeListener.cpp">
+      <Filter>Source Files</Filter>
     </None>
-    <None Include="Library\System\Profiler.cpp">
+    <None Include="Source\Application\Services\CpuMonitor.cpp">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="Library\System\Profiler.h">
-      <Filter>Header Files</Filter>
+    <None Include="Source\Application\Services\KeyboardListener.cpp">
+      <Filter>Source Files</Filter>
     </None>
-    <None Include="Library\System\ReadWriteLock.cpp">
+    <None Include="Source\Application\Services\MainSettingsManager.cpp">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="Library\System\ReadWriteLock.h">
-      <Filter>Header Files</Filter>
+    <None Include="Source\Application\Services\MemoryMonitor.cpp">
+      <Filter>Source Files</Filter>
     </None>
-    <None Include="Library\System\Thread.cpp">
+    <None Include="Source\Application\Services\RecordingManager.cpp">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="Library\System\Thread.h">
-      <Filter>Header Files</Filter>
+    <None Include="Source\Application\Services\SettingsManager.cpp">
+      <Filter>Source Files</Filter>
     </None>
-    <None Include="Library\System\Timer.cpp">
+    <None Include="Source\Application\Services\SinkWriterFactory.cpp">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="Library\System\Timer.h">
-      <Filter>Header Files</Filter>
+    <None Include="Source\Application\Services\VideoCaptureManager.cpp">
+      <Filter>Source Files</Filter>
     </None>
-    <None Include="Library\Utils\BindHelper.cpp">
+    <None Include="Source\Application\Services\VideoEncoderFactory.cpp">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="Library\Utils\BindHelper.h">
-      <Filter>Header Files</Filter>
+    <None Include="Source\Application\Services\VideoResizerFactory.cpp">
+      <Filter>Source Files</Filter>
     </None>
-    <None Include="Library\Utils\Callback.cpp">
+    <None Include="Source\Application\Services\VideoSettingsManager.cpp">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="Library\Utils\Callback.h">
-      <Filter>Header Files</Filter>
+    <None Include="Source\Application\Services\WindowCaptureFactory.cpp">
+      <Filter>Source Files</Filter>
     </None>
-    <None Include="Library\Utils\Color.cpp">
+    <None Include="Source\Application\Utils\BufferUtil.cpp">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="Library\Utils\Color.h">
-      <Filter>Header Files</Filter>
+    <None Include="Source\Application\Utils\ControlUtil.cpp">
+      <Filter>Source Files</Filter>
     </None>
-    <None Include="Library\Utils\Date.cpp">
+    <None Include="Source\Application\Utils\FormatConverter.cpp">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="Library\Utils\Date.h">
-      <Filter>Header Files</Filter>
+    <None Include="Source\Application\Utils\DialogUtil.cpp">
+      <Filter>Source Files</Filter>
     </None>
-    <None Include="Library\Utils\Line.cpp">
+    <None Include="Source\Application\Utils\LogUtil.cpp">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="Library\Utils\Line.h">
-      <Filter>Header Files</Filter>
+    <None Include="Source\Application\Utils\MemoryUtil.cpp">
+      <Filter>Source Files</Filter>
     </None>
-    <None Include="Library\Utils\Math.cpp">
+    <None Include="Source\Application\Utils\RectUtil.cpp">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="Library\Utils\Math.h">
-      <Filter>Header Files</Filter>
+    <None Include="Source\Application\Utils\SaveUtil.cpp">
+      <Filter>Source Files</Filter>
     </None>
-    <None Include="Library\Utils\NonCopyable.cpp">
+    <None Include="Source\Application\Utils\WindowUtil.cpp">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="Library\Utils\NonCopyable.h">
-      <Filter>Header Files</Filter>
+    <None Include="Source\Application\Views\AudioSettingsDialog.cpp">
+      <Filter>Source Files</Filter>
     </None>
-    <None Include="Library\Utils\Rect.cpp">
+    <None Include="Source\Application\Views\DataCheckbox.cpp">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="Library\Utils\Rect.h">
-      <Filter>Header Files</Filter>
+    <None Include="Source\Application\Views\DataCombobox.cpp">
+      <Filter>Source Files</Filter>
     </None>
-    <None Include="Library\Utils\Time.cpp">
+    <None Include="Source\Application\Views\DeviceIndicator.cpp">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="Library\Utils\Time.h">
-      <Filter>Header Files</Filter>
+    <None Include="Source\Application\Views\DeviceIndicatorAdapter.cpp">
+      <Filter>Source Files</Filter>
     </None>
-    <None Include="Library\Utils\Vector.cpp">
+    <None Include="Source\Application\Views\DialogWindow.cpp">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="Library\Utils\Vector.h">
-      <Filter>Header Files</Filter>
+    <None Include="Source\Application\Views\FpsDisplay.cpp">
+      <Filter>Source Files</Filter>
     </None>
-    <None Include="Library\Windows\Alignment.h">
-      <Filter>Header Files</Filter>
+    <None Include="Source\Application\Views\Frame.cpp">
+      <Filter>Source Files</Filter>
     </None>
-    <None Include="Library\Windows\Anchor.h">
-      <Filter>Header Files</Filter>
+    <None Include="Source\Application\Views\HotkeyEdit.cpp">
+      <Filter>Source Files</Filter>
     </None>
-    <None Include="Library\Windows\Button.cpp">
+    <None Include="Source\Application\Views\MainSettingsDialog.cpp">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="Library\Windows\Button.h">
-      <Filter>Header Files</Filter>
+    <None Include="Source\Application\Views\MainWindow.cpp">
+      <Filter>Source Files</Filter>
     </None>
-    <None Include="Library\Windows\Checkbox.cpp">
+    <None Include="Source\Application\Views\OverlayWindow.cpp">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="Library\Windows\Checkbox.h">
-      <Filter>Header Files</Filter>
+    <None Include="Source\Application\Views\Panel.cpp">
+      <Filter>Source Files</Filter>
     </None>
-    <None Include="Library\Windows\Combobox.cpp">
+    <None Include="Source\Application\Views\PreviewDisplay.cpp">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="Library\Windows\Combobox.h">
-      <Filter>Header Files</Filter>
+    <None Include="Source\Application\Views\QualityPanel.cpp">
+      <Filter>Source Files</Filter>
     </None>
-    <None Include="Library\Windows\Control.cpp">
+    <None Include="Source\Application\Views\RecordingDisplay.cpp">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="Library\Windows\Control.h">
-      <Filter>Header Files</Filter>
+    <None Include="Source\Application\Views\RecordingPanel.cpp">
+      <Filter>Source Files</Filter>
     </None>
-    <None Include="Library\Windows\CustomButton.cpp">
+    <None Include="Source\Application\Views\RectangleSelector.cpp">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="Library\Windows\CustomButton.h">
-      <Filter>Header Files</Filter>
+    <None Include="Source\Application\Views\ResizePanel.cpp">
+      <Filter>Source Files</Filter>
     </None>
-    <None Include="Library\Windows\CustomControl.cpp">
+    <None Include="Source\Application\Views\SelectionWindow.cpp">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="Library\Windows\CustomControl.h">
-      <Filter>Header Files</Filter>
+    <None Include="Source\Application\Views\Separator.cpp">
+      <Filter>Source Files</Filter>
     </None>
-    <None Include="Library\Windows\Editbox.cpp">
+    <None Include="Source\Application\Views\SettingsDialog.cpp">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="Library\Windows\Editbox.h">
-      <Filter>Header Files</Filter>
+    <None Include="Source\Application\Views\SettingsPanel.cpp">
+      <Filter>Source Files</Filter>
     </None>
-    <None Include="Library\Windows\Graphics.cpp">
+    <None Include="Source\Application\Views\SourcePanel.cpp">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="Library\Windows\Graphics.h">
-      <Filter>Header Files</Filter>
+    <None Include="Source\Application\Views\VideoSettingsDialog.cpp">
+      <Filter>Source Files</Filter>
     </None>
-    <None Include="Library\Windows\Label.cpp">
+    <None Include="Source\Application\Views\VolumeDisplay.cpp">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="Library\Windows\Label.h">
-      <Filter>Header Files</Filter>
+    <None Include="Source\Application\Views\VolumeMeter.cpp">
+      <Filter>Source Files</Filter>
     </None>
-    <None Include="Library\Windows\Picture.cpp">
+    <None Include="Source\Application\Views\WindowSelector.cpp">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="Library\Windows\Picture.h">
-      <Filter>Header Files</Filter>
+    <None Include="Source\Library\System\Brush.cpp">
+      <Filter>Source Files</Filter>
     </None>
-    <None Include="Library\Windows\Window.cpp">
+    <None Include="Source\Library\System\DynamicLibrary.cpp">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="Library\Windows\Window.h">
-      <Filter>Header Files</Filter>
+    <None Include="Source\Library\System\Event.cpp">
+      <Filter>Source Files</Filter>
     </None>
-    <None Include="Library\Windows\CustomWindow.cpp">
+    <None Include="Source\Library\System\ExclusiveLock.cpp">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="Library\Windows\CustomWindow.h">
-      <Filter>Header Files</Filter>
+    <None Include="Source\Library\System\Font.cpp">
+      <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Multiple\AsyncSettingsManager.h">
-      <Filter>Header Files</Filter>
+    <None Include="Source\Library\System\Image.cpp">
+      <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Multiple\AsyncSettingsManager.cpp">
+    <None Include="Source\Library\System\Pen.cpp">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="Library\System\LatchEvent.cpp">
+    <None Include="Source\Library\System\Profiler.cpp">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="Library\System\LatchEvent.h">
-      <Filter>Header Files</Filter>
+    <None Include="Source\Library\System\ReadWriteLock.cpp">
+      <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Multiple\Status.cpp">
+    <None Include="Source\Library\System\Thread.cpp">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Multiple\Status.h">
-      <Filter>Header Files</Filter>
+    <None Include="Source\Library\System\Timer.cpp">
+      <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Multiple\Overlay.cpp">
+    <None Include="Source\Library\Utils\BindHelper.cpp">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Multiple\Overlay.h">
-      <Filter>Header Files</Filter>
+    <None Include="Source\Library\Utils\Callback.cpp">
+      <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Multiple\Audio\SilencePlayer.cpp">
+    <None Include="Source\Library\Utils\Color.cpp">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Multiple\Audio\SilencePlayer.h">
-      <Filter>Header Files</Filter>
+    <None Include="Source\Library\Utils\Date.cpp">
+      <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Multiple\FrameSink.h">
-      <Filter>Header Files</Filter>
+    <None Include="Source\Library\Utils\Line.cpp">
+      <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Multiple\FrameSink.cpp">
+    <None Include="Source\Library\Utils\Math.cpp">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Multiple\FrameEmitter.cpp">
+    <None Include="Source\Library\Utils\NonCopyable.cpp">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Multiple\FrameEmitter.h">
-      <Filter>Header Files</Filter>
+    <None Include="Source\Library\Utils\Rect.cpp">
+      <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Multiple\FrameDelegate.cpp">
+    <None Include="Source\Library\Utils\Time.cpp">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Multiple\FrameDelegate.h">
-      <Filter>Header Files</Filter>
+    <None Include="Source\Library\Utils\Vector.cpp">
+      <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Global\SaveManager.cpp">
+    <None Include="Source\Library\Windows\Button.cpp">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Global\SaveManager.h">
-      <Filter>Header Files</Filter>
+    <None Include="Source\Library\Windows\Checkbox.cpp">
+      <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Utils\FileUtil.h">
-      <Filter>Header Files</Filter>
+    <None Include="Source\Library\Windows\Combobox.cpp">
+      <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Utils\FileUtil.cpp">
+    <None Include="Source\Library\Windows\Control.cpp">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Utils\StringUtil.cpp">
+    <None Include="Source\Library\Windows\CustomButton.cpp">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Utils\StringUtil.h">
-      <Filter>Header Files</Filter>
+    <None Include="Source\Library\Windows\CustomControl.cpp">
+      <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Multiple\Captures\BitBltCapture.cpp">
+    <None Include="Source\Library\Windows\Editbox.cpp">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Multiple\Captures\BitBltCapture.h">
-      <Filter>Header Files</Filter>
+    <None Include="Source\Library\Windows\Graphics.cpp">
+      <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Multiple\Captures\DwmSharedSurfaceCapture.cpp">
+    <None Include="Source\Library\Windows\Label.cpp">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Multiple\Captures\DwmSharedSurfaceCapture.h">
-      <Filter>Header Files</Filter>
+    <None Include="Source\Library\Windows\Picture.cpp">
+      <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Services\ScreenCaptureFactory.cpp">
+    <None Include="Source\Library\Windows\Window.cpp">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Services\ScreenCaptureFactory.h">
-      <Filter>Header Files</Filter>
+    <None Include="Source\Library\Windows\CustomWindow.cpp">
+      <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Services\AudioSourceManager.h">
-      <Filter>Header Files</Filter>
+    <None Include="Source\Application\Multiple\AsyncSettingsManager.cpp">
+      <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Services\AudioSourceManager.cpp">
+    <None Include="Source\Library\System\LatchEvent.cpp">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Services\VideoSourceManager.h">
-      <Filter>Header Files</Filter>
+    <None Include="Source\Application\Multiple\Status.cpp">
+      <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Services\VideoSourceManager.cpp">
+    <None Include="Source\Application\Multiple\Overlay.cpp">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Multiple\Captures\DwmPrintWindowCapture.cpp">
+    <None Include="Source\Application\Multiple\FrameSink.cpp">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Multiple\Captures\DwmPrintWindowCapture.h">
-      <Filter>Header Files</Filter>
+    <None Include="Source\Application\Multiple\FrameEmitter.cpp">
+      <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Multiple\Captures\DXGIOutputDuplicationCapture.cpp">
+    <None Include="Source\Application\Multiple\FrameDelegate.cpp">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Multiple\Captures\DXGIOutputDuplicationCapture.h">
-      <Filter>Header Files</Filter>
+    <None Include="Source\Application\Utils\FileUtil.cpp">
+      <Filter>Source Files</Filter>
     </None>
-    <None Include="Library\Windows\WindowComposition.cpp">
+    <None Include="Source\Application\Multiple\Captures\BitBltCapture.cpp">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="Library\Windows\WindowComposition.h">
-      <Filter>Header Files</Filter>
+    <None Include="Source\Application\Multiple\Captures\DwmSharedSurfaceCapture.cpp">
+      <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Multiple\MediaSource.h">
-      <Filter>Header Files</Filter>
+    <None Include="Source\Application\Services\AudioSourceManager.cpp">
+      <Filter>Source Files</Filter>
+    </None>
+    <None Include="Source\Application\Services\VideoSourceManager.cpp">
+      <Filter>Source Files</Filter>
+    </None>
+    <None Include="Source\Application\Multiple\Captures\DwmPrintWindowCapture.cpp">
+      <Filter>Source Files</Filter>
+    </None>
+    <None Include="Source\Application\Multiple\Captures\DXGIOutputDuplicationCapture.cpp">
+      <Filter>Source Files</Filter>
     </None>
-    <None Include="Application\Multiple\MediaSource.cpp">
+    <None Include="Source\Application\Multiple\MediaSource.cpp">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="Library\Utils\Virtual.cpp">
+    <None Include="Source\Application\Multiple\Aligned2DBuffer.cpp">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="Library\Utils\Virtual.h">
+    <None Include="Source\Application\Multiple\Aligned2DBuffer.h">
       <Filter>Header Files</Filter>
     </None>
   </ItemGroup>
