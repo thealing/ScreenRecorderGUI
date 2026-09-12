@@ -21,8 +21,8 @@ void VideoResizer::onFrame()
 	const uint32_t* inputPixels = inputBuffer->beginReading();
 	uint32_t* outputPixels = beginFrame();
 	_resizer->resize(inputPixels, outputPixels);
-	endFrame(true);
-	inputBuffer->endReading();
+	LONGLONG timestamp = inputBuffer->endReading();
+	endFrame(timestamp);
 }
 
 void VideoResizer::onError()

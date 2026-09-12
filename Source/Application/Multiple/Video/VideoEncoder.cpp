@@ -92,6 +92,7 @@ HRESULT VideoEncoder::getSample(IMFSample** sample)
 	DWORD encodedSize = pixelCount * 3 / 2;
 	ComPointer<IMFMediaBuffer> buffer;
 	BYTE* data = NULL;
+	LONGLONG timestamp = 0;
 	Status result;
 	if (result)
 	{
@@ -121,7 +122,7 @@ HRESULT VideoEncoder::getSample(IMFSample** sample)
 				break;
 			}
 		}
-		captureBuffer->endReading();
+		timestamp = captureBuffer->endReading();
 		result = buffer->Unlock();
 	}
 	if (result)
@@ -134,13 +135,10 @@ HRESULT VideoEncoder::getSample(IMFSample** sample)
 	}
 	if (result)
 	{
-		// Should this be the time when the WindowCapture::update method got called?
-		LONGLONG time = MFGetSystemTime();
-		result = (*sample)->SetSampleTime(time);
+		result = (*sample)->SetSampleTime(timestamp);
 	}
 	if (result)
 	{
-		// Should this be the time until the next frame instead of a fixed value?
 		LONGLONG duration = llround(10000000.0 / _settings.frameRate); 
 		result = (*sample)->SetSampleDuration(duration);
 	}

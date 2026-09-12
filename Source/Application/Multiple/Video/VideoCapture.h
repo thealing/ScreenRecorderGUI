@@ -16,7 +16,8 @@ protected:
 
 	uint32_t* beginFrame();
 
-	void endFrame(bool success);
+	template<typename... Args>
+	void endFrame(Args... args);
 
 private:
 

@@ -10,9 +10,14 @@ Status::Status(HRESULT result)
 	_result = result;
 }
 
+bool Status::operator==(HRESULT result) const
+{
+	return _result == result;
+}
+
 Status::operator bool() const
 {
-	return SUCCEEDED(_result);
+	return _result == S_OK;
 }
 
 Status::operator HRESULT() const

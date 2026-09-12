@@ -8,6 +8,8 @@ public:
 
 	Status(HRESULT result);
 
+	bool operator==(HRESULT result) const;
+
 	operator bool() const;
 
 	operator HRESULT() const;

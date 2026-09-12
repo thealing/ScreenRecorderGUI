@@ -6,6 +6,7 @@ Buffer::Buffer(int width, int height)
 	_height = BufferUtil::alignHeight(height);
 	_stride = BufferUtil::alignStride(width);
 	_pixels = BufferUtil::allocateBuffer<uint32_t>(_stride * _height);
+	_timestamp = 0;
 }
 
 Buffer::~Buffer()
@@ -26,6 +27,13 @@ uint32_t* Buffer::beginWriting()
 
 void Buffer::endWriting()
 {
+	LONGLONG timestamp = MFGetSystemTime();
+	endWriting(timestamp);
+}
+
+void Buffer::endWriting(LONGLONG timestamp)
+{
+	_timestamp = timestamp;
 	_lock.endWriting();
 }
 
@@ -35,9 +43,11 @@ const uint32_t* Buffer::beginReading() const
 	return _pixels;
 }
 
-void Buffer::endReading() const
+LONGLONG Buffer::endReading() const
 {
+	LONGLONG timestamp = _timestamp;
 	_lock.endReading();
+	return timestamp;
 }
 
 int Buffer::getWidth() const

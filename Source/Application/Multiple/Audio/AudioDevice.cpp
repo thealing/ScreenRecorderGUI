@@ -116,6 +116,10 @@ HRESULT AudioDevice::getSample(IMFSample** sample)
 	if (result)
 	{
 		result = _captureClient->GetBuffer(&frameBuffer, &frameCount, &flags, NULL, &position);
+		if (result == AUDCLNT_S_BUFFER_EMPTY)
+		{
+			result = S_FALSE;
+		}
 	}
 	if (result)
 	{

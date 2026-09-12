@@ -109,6 +109,13 @@ void Encoder::onFrame()
 	if (result)
 	{
 		time -= _startTime;
+		if (time < 0)
+		{
+			result = MF_E_INVALID_TIMESTAMP;
+		}
+	}
+	if (result)
+	{
 		result = sample->SetSampleTime(time);
 	}
 	if (result)

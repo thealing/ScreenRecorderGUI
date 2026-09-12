@@ -110,7 +110,7 @@ bool DXGIOutputDuplicationCapture::captureFrame()
 	{
 		uint32_t* pixels = beginFrame();
 		memcpy(pixels, (uint8_t*)map.pData, height * stride * sizeof(uint32_t));
-		endFrame(result);
+		endFrame();
 		_context->Unmap(captureTexture, 0);
 	}
 	if (desktopResource != NULL)

@@ -44,7 +44,7 @@ bool DwmPrintWindowCapture::captureFrame()
 	{
 		uint32_t* pixels = beginFrame();
 		memcpy(pixels, _capturePixels, height * stride * sizeof(uint32_t));
-		endFrame(result);
+		endFrame();
 	}
 	return result;
 }

@@ -24,22 +24,17 @@ uint32_t* VideoCapture::beginFrame()
 	return _buffer->beginWriting();
 }
 
-void VideoCapture::endFrame(bool success)
+template<typename... Args>
+void VideoCapture::endFrame(Args... args)
 {
-	if (success)
+	uint32_t* pixels = _buffer->getPixels();
+	int width = _buffer->getWidth();
+	int height = _buffer->getHeight();
+	int stride = _buffer->getStride();
+	for (Overlay* overlay : _overlays)
 	{
-		uint32_t* pixels = _buffer->getPixels();
-		int width = _buffer->getWidth();
-		int height = _buffer->getHeight();
-		int stride = _buffer->getStride();
-		for (Overlay* overlay : _overlays)
-		{
-			overlay->draw(pixels, width, height, stride);
-		}
+		overlay->draw(pixels, width, height, stride);
 	}
-	_buffer->endWriting();
-	if (success)
-	{
-		signalFrame();
-	}
+	_buffer->endWriting(args...);
+	signalFrame();
 }

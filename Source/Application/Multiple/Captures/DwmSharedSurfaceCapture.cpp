@@ -81,7 +81,7 @@ bool DwmSharedSurfaceCapture::captureFrame()
 	{
 		uint32_t* pixels = beginFrame();
 		memcpy(pixels, map.pData, height * stride * sizeof(uint32_t));
-		endFrame(result);
+		endFrame();
 		_context->Unmap(_captureTexture, 0);
 	}
 	return result;
