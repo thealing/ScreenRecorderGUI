@@ -1,7 +1,5 @@
 #pragma once
 
-// External Headers
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -29,8 +27,6 @@
 #include <intrin.h>
 #include <d3d11.h>
 #include <dxgi1_2.h>
-
-// Project Headers
 
 #include "Library\Utils\Callback.h"
 #include "Library\Utils\BindHelper.h"
