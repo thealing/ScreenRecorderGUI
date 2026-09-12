@@ -24,6 +24,6 @@ private:
 
 	HWND _window;
 	UniquePointer<Timer> _timer;
-	double _failTime;
+	double _captureTime;
 };
 
