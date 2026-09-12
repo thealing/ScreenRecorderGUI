@@ -21,4 +21,8 @@ private:
 private:
 
 	Status _status;
+
+private:
+
+	typedef HRESULT WINAPI SetProcessDpiAwareness(int);
 };

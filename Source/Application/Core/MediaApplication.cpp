@@ -2,9 +2,9 @@
 
 MediaApplication::MediaApplication(bool console) : Application(console)
 {
-	initPlatform();
 	setAccurateTimer();
 	setDpiAwareness();
+	initPlatform();
 }
 
 MediaApplication::~MediaApplication()
@@ -52,9 +52,17 @@ void MediaApplication::setAccurateTimer()
 
 void MediaApplication::setDpiAwareness()
 {
-	BOOL result = SetProcessDPIAware();
-	if (result == FALSE)
+	DynamicLibrary shcore("shcore");
+	SetProcessDpiAwareness* setProcessDpiAwareness = shcore.getFunction<SetProcessDpiAwareness>("SetProcessDpiAwareness");
+	if (setProcessDpiAwareness && setProcessDpiAwareness(2) == S_OK)
 	{
-		LogUtil::logWarning(L"Failed to set DPI awareness.");
+		LogUtil::logDebug(L"Set per-monitor DPI awareness.");
+		return;
 	}
+	if (SetProcessDPIAware())
+	{
+		LogUtil::logDebug(L"Set system-wide DPI awareness.");
+		return;
+	}
+	LogUtil::logWarning(L"Failed to set DPI awareness.");
 }
