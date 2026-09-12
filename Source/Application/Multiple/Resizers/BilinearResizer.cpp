@@ -70,7 +70,6 @@ void BilinearResizer::resize(const uint32_t* inputPixels, uint32_t* outputPixels
 	__m128i mask2 = _mm_set_epi8(15, 14, 13, 12, 11, 10, 9, 8, 7, 3, 5, 1, 6, 4, 2, 0);
 	for (int y = _outputRect.lower.y; y < _outputRect.upper.y; y++)
 	{
-		// Must cache fields to enable optimization!
 		int* indexBuffer = _indexBuffer;
 		int* weightBuffer = _weightBuffer;
 		int row = _outputSize.x * y;

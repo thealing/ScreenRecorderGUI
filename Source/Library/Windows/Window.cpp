@@ -92,7 +92,6 @@ void Window::setRect(const Rect& rect)
 
 void Window::setText(const wchar_t* position)
 {
-	// Using SetWindowText would cause the text to flicker!
 	setRedraw(false);
 	sendMessage(WM_SETTEXT, NULL, (LPARAM)position);
 	setRedraw(true);
@@ -482,8 +481,6 @@ BOOL Window::excludeFromCaptureProc(HWND window, LPARAM lParam)
 
 void Window::setExcludedFromCapture(HWND window, BOOL excluded)
 {
-	// Using SetWindowDisplayAffinity would create artifacts on the screen!
-	// This however only excludes the window from Desktop Duplication and not BitBlt.
 	WINDOWCOMPOSITIONATTRIBDATA data = {};
 	data.Attrib = WCA_EXCLUDED_FROM_DDA;
 	data.pvData = &excluded;
