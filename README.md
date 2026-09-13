@@ -2,7 +2,7 @@
 A high-performance, low resource usage Windows application for real-time screen and audio recording.
 ## Features
 - Video sources
-  - The entire screen
+  - A monitor screen
   - A rectangular area
   - A window
 - Audio sources
@@ -10,7 +10,7 @@ A high-performance, low resource usage Windows application for real-time screen 
   - Microphone
 - Resize options
   - Nearest-neighbor interpolation: Low quality
-  - Bilinear interpolation: High quality for up-to 2x downscaling
+  - Bilinear interpolation: High quality for up to 2x downscaling
 - Multiple screen capture methods
 - Hardware-accelerated encoding
 - Custom video frame rate
