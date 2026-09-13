@@ -36,7 +36,7 @@ void SnapshotController::takeSnapshot()
 	}
 	if (result)
 	{
-		result = CoCreateInstance(CLSID_WICImagingFactory, NULL, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&factory));
+		result = CoCreateInstance(CLSID_WICImagingFactory1, NULL, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&factory));
 	}
 	if (result)
 	{
