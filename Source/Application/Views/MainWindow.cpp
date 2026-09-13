@@ -1,7 +1,7 @@
 #include "MainWindow.h"
 
 #define CLASS_NAME L"Capture Bit Window Class"
-#define WINDOW_NAME L"Capture Bit 4.5"
+#define WINDOW_NAME L"Capture Bit 4.7"
 
 MainWindow::MainWindow() : CustomWindow(CLASS_NAME)
 {

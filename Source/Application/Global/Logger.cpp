@@ -5,14 +5,14 @@
 
 void Logger::init(bool debug)
 {
+	LogMode mode = LogModeNone;
+	SaveUtil::loadSettings(LOG_MODE_SETTING_NAME, &mode);
 	ExclusiveLockHolder holder(&_lock);
 	if (debug)
 	{
 		_file = stdout;
 		return;
 	}
-	LogMode mode = LogModeNone;
-	SaveUtil::loadSettings(LOG_MODE_SETTING_NAME, &mode);
 	switch (mode)
 	{
 		case LogModeNone:
